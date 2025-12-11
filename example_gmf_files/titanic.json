@@ -1,0 +1,445 @@
+{
+    "gmf_version": "1.1",
+    "n_rows": 891,
+    "n_columns": 13,
+    "provenance": {
+        "created by": {
+            "name": "metasyn",
+            "version": "2.0.0"
+        },
+        "creation time": "2025-12-11T10:48:06.569474"
+    },
+    "vars": [
+        {
+            "name": "PassengerId",
+            "type": "discrete",
+            "dtype": "Int64",
+            "prop_missing": 0.0,
+            "distribution": {
+                "name": "core.unique_key",
+                "version": "1.0",
+                "class_name": "UniqueKeyDistribution",
+                "unique": true,
+                "parameters": {
+                    "lower": 1,
+                    "consecutive": true
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "UniqueKeyFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Name",
+            "type": "string",
+            "dtype": "String",
+            "prop_missing": 0.0,
+            "distribution": {
+                "name": "core.faker",
+                "version": "1.0",
+                "class_name": "FakerDistribution",
+                "unique": false,
+                "parameters": {
+                    "faker_type": "name",
+                    "locale": "en_US"
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "distribution": {
+                    "name": "core.faker",
+                    "unique": false,
+                    "parameters": {
+                        "faker_type": "name",
+                        "locale": "en_US"
+                    },
+                    "version": "1.0"
+                }
+            }
+        },
+        {
+            "name": "Sex",
+            "type": "categorical",
+            "dtype": "Categorical",
+            "prop_missing": 0.0,
+            "distribution": {
+                "name": "core.multinoulli",
+                "version": "1.0",
+                "class_name": "MultinoulliDistribution",
+                "unique": false,
+                "parameters": {
+                    "labels": [
+                        "female",
+                        "male"
+                    ],
+                    "probs": [
+                        0.35241301907968575,
+                        0.6475869809203143
+                    ]
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "MultinoulliFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Age",
+            "type": "discrete",
+            "dtype": "Int64",
+            "prop_missing": 0.19865319865319866,
+            "distribution": {
+                "name": "core.uniform",
+                "version": "1.0",
+                "class_name": "DiscreteUniformDistribution",
+                "unique": false,
+                "parameters": {
+                    "lower": 20,
+                    "upper": 40
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "distribution": {
+                    "name": "core.uniform",
+                    "unique": false,
+                    "parameters": {
+                        "lower": 20,
+                        "upper": 40
+                    },
+                    "version": "1.0"
+                }
+            }
+        },
+        {
+            "name": "Parch",
+            "type": "discrete",
+            "dtype": "Int64",
+            "prop_missing": 0.0,
+            "distribution": {
+                "name": "core.truncated_normal",
+                "version": "1.0",
+                "class_name": "DiscreteTruncatedNormalDistribution",
+                "unique": false,
+                "parameters": {
+                    "lower": -1e-08,
+                    "upper": 6.00000001,
+                    "mean": -247.46471779076856,
+                    "sd": 9.72548403502272
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "DiscreteTruncatedNormalFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Ticket",
+            "type": "string",
+            "dtype": "String",
+            "prop_missing": 0.0,
+            "distribution": {
+                "name": "core.regex",
+                "version": "2.0",
+                "class_name": "RegexDistribution",
+                "unique": false,
+                "parameters": {
+                    "regex_data": {
+                        "regex": "(|[A-Z]{1,4}(|(\\.A\\.|/[0-9A-Z])) )[0-9]{4,6}",
+                        "counts": [
+                            [
+                                [
+                                    643
+                                ],
+                                [
+                                    46,
+                                    [
+                                        [
+                                            75
+                                        ],
+                                        [
+                                            [
+                                                [
+                                                    27,
+                                                    27,
+                                                    27,
+                                                    27
+                                                ],
+                                                [
+                                                    19,
+                                                    19,
+                                                    19
+                                                ]
+                                            ],
+                                            0
+                                        ]
+                                    ],
+                                    75,
+                                    75
+                                ]
+                            ],
+                            643,
+                            643
+                        ]
+                    }
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "RegexFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "2.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Fare",
+            "type": "continuous",
+            "dtype": "Float64",
+            "prop_missing": 0.0,
+            "distribution": {
+                "name": "core.lognormal",
+                "version": "1.0",
+                "class_name": "LogNormalDistribution",
+                "unique": false,
+                "parameters": {
+                    "mean": 0,
+                    "sd": 1
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "distribution": {
+                    "name": "lognormal"
+                },
+                "fitter": {
+                    "name": "LogNormalFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Cabin",
+            "type": "string",
+            "dtype": "String",
+            "prop_missing": 0.7710437710437711,
+            "distribution": {
+                "name": "core.regex",
+                "version": "2.0",
+                "class_name": "RegexDistribution",
+                "unique": false,
+                "parameters": {
+                    "regex_data": {
+                        "regex": "[A-F][0-9]{2,3}",
+                        "counts": [
+                            1,
+                            1,
+                            1
+                        ]
+                    }
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "distribution": {
+                    "name": "core.regex",
+                    "unique": false,
+                    "parameters": {
+                        "regex_data": {
+                            "regex": "[A-F][0-9]{2,3}",
+                            "counts": [
+                                1,
+                                1,
+                                1
+                            ]
+                        }
+                    },
+                    "version": "2.0"
+                }
+            },
+            "description": "The cabin number of the passenger."
+        },
+        {
+            "name": "Embarked",
+            "type": "categorical",
+            "dtype": "Categorical",
+            "prop_missing": 0.002244668911335578,
+            "distribution": {
+                "name": "core.multinoulli",
+                "version": "1.0",
+                "class_name": "MultinoulliDistribution",
+                "unique": false,
+                "parameters": {
+                    "labels": [
+                        "C",
+                        "Q",
+                        "S"
+                    ],
+                    "probs": [
+                        0.1889763779527559,
+                        0.08661417322834646,
+                        0.7244094488188977
+                    ]
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "MultinoulliFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Birthday",
+            "type": "date",
+            "dtype": "Date",
+            "prop_missing": 0.08754208754208755,
+            "distribution": {
+                "name": "core.uniform",
+                "version": "1.0",
+                "class_name": "DateUniformDistribution",
+                "unique": false,
+                "parameters": {
+                    "lower": "1903-07-28",
+                    "upper": "1940-05-27"
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "DateUniformFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Board time",
+            "type": "time",
+            "dtype": "Time",
+            "prop_missing": 0.08866442199775533,
+            "distribution": {
+                "name": "core.uniform",
+                "version": "1.0",
+                "class_name": "TimeUniformDistribution",
+                "unique": false,
+                "parameters": {
+                    "lower": "10:39:40",
+                    "upper": "18:39:28",
+                    "precision": "seconds"
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "TimeUniformFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "Married since",
+            "type": "datetime",
+            "dtype": "Datetime(time_unit='us', time_zone=None)",
+            "prop_missing": 0.10325476992143659,
+            "distribution": {
+                "name": "core.uniform",
+                "version": "1.0",
+                "class_name": "DateTimeUniformDistribution",
+                "unique": false,
+                "parameters": {
+                    "lower": "2022-07-15T12:21:15",
+                    "upper": "2022-08-15T10:32:05",
+                    "precision": "seconds"
+                }
+            },
+            "creation_method": {
+                "created_by": "metasyn",
+                "fitter": {
+                    "name": "DateTimeUniformFitter",
+                    "privacy": {
+                        "name": "none",
+                        "parameters": {}
+                    },
+                    "version": "1.0",
+                    "plugin": "builtin",
+                    "plugin_version": "2.0.0"
+                }
+            }
+        },
+        {
+            "name": "all_NA",
+            "type": "string",
+            "dtype": "String",
+            "prop_missing": 1.0,
+            "distribution": {
+                "name": "core.na",
+                "version": "1.0",
+                "class_name": "NADistribution",
+                "unique": false,
+                "parameters": {}
+            },
+            "creation_method": {
+                "created_by": "metasyn"
+            }
+        }
+    ]
+}
