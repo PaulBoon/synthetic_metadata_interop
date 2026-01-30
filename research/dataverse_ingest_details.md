@@ -173,3 +173,15 @@ Extending the code is technically possible, but there are some issues that make 
 - We could calculate the GMF 'distribution info' type and parameters, but we would need to code that or use (port) the existing Python code from `metasyn`. 
 - Calculation at ingest might take more time that what is acceptable on a UI for a depositor to wait for, especially for large files. 
 - For large files we do not have an ingest configured in our SSH Datastation; assuming large is `> 5MB`. 
+
+
+# Suggestions for integration with Dataverse
+
+Instead of trying to change the Dataverse 'ingest' process I want to propose a different approach.  
+Support synthetic data generation (and GMF) via the external tools configuration option in Dataverse. 
+Similar approach was implemented by people from 'OpenDP' (Open Differential Privacy) six years ago; see their video: https://www.youtube.com/watch?v=0vfqPZcpi90
+
+We should investigate the possibility to use the 'Secure External Tools': https://guides.dataverse.org/en/latest/api/external-tools.html. 
+
+This 'external tools' functionality would allow to initiate a request to another service from the File page in Dataverse, passing file information that enables that service to do its work. 
+
