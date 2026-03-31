@@ -1,0 +1,192 @@
+<html>
+<head>
+    <title>Synthetic Replicant File Tool</title>
+</head>
+<body>
+    <h1>Synthetic Replicant File Tool (Experimental Fake implementation!)</h1>
+    <p>This tool generates a synthetic representation of a file. </p>
+
+    <div id="tool-info">
+        <!-- This is where the tool's information will be displayed -->
+
+    </div>
+<script>
+
+    // Example of how to call an external tool with parameters
+    function callSynthFileTool() {
+        const params = {
+            // Add necessary parameters here
+        };
+
+        fetch('https://some-synth-api/', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(params)
+        })
+        .then(response => response.text())
+        .then(data => {
+            console.log('Tool Output:', data);
+        })
+        .catch(error => {
+            console.error('Error calling Synth File Tool:', error);
+        });
+    }
+
+    function displayQueryParams(queryParams) {
+        const outputDiv = document.getElementById('tool-info');
+        const queryParamsResults = document.createElement('p');
+        queryParamsResults.textContent = 'Tool Input:';
+        outputDiv.appendChild(queryParamsResults);
+        const queryList = document.createElement('ul');
+        outputDiv.appendChild(queryList);
+        // iterate over all query parameters and display them
+        for (const [key, value] of Object.entries(queryParams)) {
+            const li = document.createElement('li');
+            li.textContent = `${key}: ${value}`;
+            queryList.appendChild(li);
+        }
+    }
+
+    // slightly different from displayQueryParams... object stuff
+    function displayUrlParams(urlParams) {
+        // iterate over all query parameters and show them
+        const outputDiv = document.getElementById('tool-info');
+        const queryParamsResults = document.createElement('p');
+        queryParamsResults.textContent = 'Tool url params:';
+        outputDiv.appendChild(queryParamsResults);
+        const queryList = document.createElement('ul');
+        outputDiv.appendChild(queryList);
+        // iterate over all query parameters and display them
+        urlParams.forEach((value, key) => {
+            const li = document.createElement('li');
+            li.textContent = `${key}: ${value}`;
+            queryList.appendChild(li);
+        });
+    }
+
+    function displayFileContent(fileContent) {
+        const outputDiv = document.getElementById('tool-info');
+        const fileContentDiv = document.createElement('div');
+        fileContentDiv.textContent = 'File Content (first 10 lines):';
+        outputDiv.appendChild(fileContentDiv);
+        const fileLines = fileContent.split('\n').slice(0, 10);
+        const fileLinesList = document.createElement('ul');
+        fileLines.forEach(line => {
+            const li = document.createElement('li');
+            li.textContent = line;
+            fileLinesList.appendChild(li);
+        });
+        outputDiv.appendChild(fileLinesList);
+    }
+
+    // This function would contain the logic to continue the process
+    // using the query parameters.
+    function continueWithParams(queryParams) {
+        console.log('Continuing with parameters:', queryParams);
+
+        displayQueryParams(queryParams);
+
+        // download up to 10 lines of the file
+        // queryParams.fileUrl should contain the signed URL to retrieve the file contents
+        if (queryParams.fileUrl) {
+            console.log('Retrieving file content from:', queryParams.fileUrl);
+            fetch(queryParams.fileUrl)
+                .then(response => response.text())
+                .then(fileContent => {
+                    // Note that we have the whole file content already...
+                    displayFileContent(fileContent);
+                })
+                .catch(error => {
+                    console.error('Error retrieving file content:', error);
+                }); 
+        } else {
+            console.warn('No fileUrl provided in query parameters, cannot retrieve file content.');
+        }
+    }
+
+    // handle onload; get or extract the query parameters
+    window.onload = function() {
+        var queryParams = {};
+
+        // get the query parameters from the URL
+        queryParams = new URLSearchParams(window.location.search);
+        
+        displayUrlParams(queryParams);
+
+        var locale = queryParams.get('locale');
+        if (locale == null) {
+            locale = 'en';
+        }
+
+        if (queryParams.has("callback")) {
+            var callback = atob(queryParams.get("callback"));
+            
+            fetch(callback, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+            })
+            .then(response => response.json())
+            .then(json => {
+                console.log('Callback Response:', json.data);
+                queryParams = json.data.queryParameters;
+                var urls = json.data.signedUrls;
+                for (var i in urls) {
+                    var url = urls[i];
+                    switch (url.name) {
+                        case 'retrieveFileContents':
+                            queryParams.fileUrl = url.signedUrl;
+                            break;
+                        case 'downloadFile':
+                            queryParams.fileDownloadUrl = url.signedUrl;
+                            break;
+                        case 'getDatasetVersionMetadata':
+                            queryParams.versionUrl = url.signedUrl;
+                            break;
+                        case 'retrieveDataFile': // Only got this one configured!
+                            queryParams.fileUrl = url.signedUrl;
+                            break;
+                        default:
+                    }
+                }
+                continueWithParams(queryParams);
+            })
+            .catch(error => {
+                console.error('Error calling callback:', error);
+            });
+        } else {
+            // No callback, I guess this is the case for old versions of Dataverse
+            // probably I do not want or need to support this, but copied it from retriever.js.
+            console.log('No callback provided, extracting parameters from URL');
+
+            params.forEach((value, key) => {
+                queryParams[key] = value;
+            });
+            var fileUrl = queryParams.siteUrl + "/api/access/datafile/"
+                + queryParams.fileid + "?gbrecs=true";
+            var fileDownloadUrl = queryParams.siteUrl + "/api/access/datafile/"
+                + queryParams.fileid + "?gbrecs=false";
+            var versionUrl = queryParams.siteUrl + "/api/datasets/"
+                + queryParams.datasetid + "/versions/"
+                + queryParams.datasetversion;
+            var apiKey = queryParams.key;
+            if (apiKey != null) {
+                fileUrl = fileUrl + "&key=" + apiKey;
+                fileDownloadUrl = fileUrl + "&key=" + apiKey;
+                versionUrl = versionUrl + "?key=" + apiKey;
+            }
+            queryParams.fileUrl = fileUrl;
+            queryParams.fileDownloadUrl = fileDownloadUrl;
+            queryParams.versionUrl = versionUrl;
+            continueWithParams(queryParams);
+        }
+
+        // nothing to do here, the rest of the logic is in the continueWithParams function, which is called after we have the query parameters ready.
+    };
+
+</script>
+</body>
+</html>
