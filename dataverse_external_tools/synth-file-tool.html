@@ -120,6 +120,11 @@
             locale = 'en';
         }
 
+        // From the guide: For tools invoked via a GET call, 
+        // Dataverse will include a callback query parameter with a Base64 encoded value. 
+        // The decoded value is a signed URL that can be called to retrieve a JSON response 
+        // containing all of the queryParameters and allowedApiCalls specified 
+        // in the manifest.
         if (queryParams.has("callback")) {
             var callback = atob(queryParams.get("callback"));
             
