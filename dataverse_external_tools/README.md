@@ -49,10 +49,16 @@ If you select that one the browser will load that html page.
 
 ## Tool functionality
 
+### Getting the data
+
 As a starting point for the script code I inspected (and copied from) the code for the previewers. The first step is done with the `retriever.js` script code, which can be found here: 
 `https://github.com/gdcc/dataverse-previewers/blob/develop/previewers/v1.5/js/retriever.js`. 
-Bisides skipping some code that's of less importance for this experiment (like i18n); I also do not use jQuery; so no `$.ajax`, but using `fetch` instead. 
+Besides skipping some code that's of less importance for this experiment (like i18n); I also do not use jQuery; so no `$.ajax`, but using `fetch` instead. 
 
+The previewer code was a working example of how toi retrieve the file data, which normally will be 'viewed'. Getting the data is needed in order to generate the 'schema' that is in turn needed for the synthetic data generation. 
+
+The following screenshot show the output of the (fake) tool for the test.tab (csv originally) file: 
+![Screenshot showing parameters and retrieved file data](Screenshot-FileRetrieveAndDisplayData.png).
 
 
 
