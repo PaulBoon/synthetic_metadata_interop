@@ -75,6 +75,8 @@ https://guides.dataverse.org/en/latest/developers/aux-file-support.html
 
 Note that the guide shows how you can manipulate (create, list, delete) these aux files from the commandline with `curl` while experimenting. 
 
+The aux file can be downloaded via the same `Access File` dropdown from where you initiate the explore tool.  
+
 #### Aux file and external tools limitations
 
 During experimenting a limitation was discovered for the aux file creation; we do not get signed URLs when the file is publicly available, making the POST request fail. 
