@@ -34,6 +34,8 @@
         });
     }
 
+    //--- Display functions, adding elements to the tool-info div for demonstration purposes ---
+
     function displayQueryParams(queryParams) {
         const outputDiv = document.getElementById('tool-info');
         const queryParamsResults = document.createElement('p');
@@ -81,6 +83,23 @@
         outputDiv.appendChild(fileLinesList);
     }
 
+    function displayAuxFileContent(fileContent) {
+        const outputDiv = document.getElementById('tool-info');
+        const fileContentDiv = document.createElement('div');
+        fileContentDiv.textContent = 'Auxiliary File Content (first 10 lines):';
+        outputDiv.appendChild(fileContentDiv);
+        const fileLines = fileContent.split('\n').slice(0, 10);
+        const fileLinesList = document.createElement('ul');
+        fileLines.forEach(line => {
+            const li = document.createElement('li');
+            li.textContent = line;
+            fileLinesList.appendChild(li);
+        });
+        outputDiv.appendChild(fileLinesList);
+    }
+
+    //--- Retrieval and Storing functions ---
+
     // Looks like it really need the API-TOKEN 
     // and I cannot get that to work, and also do not want it either?
     function uploadAuxFile(queryParams, fileContent) {
@@ -97,6 +116,25 @@
         .then(list_data => {
             console.log('Auxiliary files list response:', list_data);       
             // TODO should do no upload ... so not in finally
+
+            // should do no upload, but try to retrieve the aux file content if it exists
+            if (list_data.data.length > 0) {
+                console.log('Auxiliary file already exists, retrieving contents...');
+                fetch(queryParams.auxFileContentsUrl, {
+                    method: 'GET'
+                })
+                .then(response => response.text())
+                .then(aux_file_content => {
+                    console.log('Auxiliary file content:', aux_file_content);
+                    displayAuxFileContent(aux_file_content);
+                })
+                .catch(error => {
+                    console.error('Error retrieving auxiliary file content:', error);
+                });
+            } else {
+                console.log('No auxiliary file exists, proceeding with upload.');
+            }
+
         })
         .catch(error => {
             // Not Found is expected when there is no aux file yet
@@ -136,9 +174,9 @@
             })
             .catch(error => {
                 console.error('Error uploading auxiliary file:', error);
+               // Note that a 409 Conflict error is expected if the auxiliary file already exists
             });
         });
-
     }  
 
     // This function would contain the logic to continue the process
@@ -222,6 +260,9 @@
                             break;
                         case 'listAuxFiles':
                             queryParams.auxFilesListUrl = url.signedUrl;
+                            break;
+                        case 'retrieveAuxFileContents':
+                            queryParams.auxFileContentsUrl = url.signedUrl;
                             break;
                         case 'uploadAuxFile':
                             queryParams.auxFileUploadUrl = url.signedUrl;
