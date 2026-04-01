@@ -84,3 +84,14 @@ Maybe it is better to create an issue for this on the Github Repo, and at least 
 
 The aux files mechanism can be used in conjunction with the external tools mechanism. 
 It is possible to extract the data, do some processing and store a result in an aux file. 
+
+
+### Appendix
+
+Screenshots of the web page. 
+
+The first time there will be no aux file yet, and it will create one. 
+![First time](Screenshot-NeededToCreateAuxFile.png)
+
+The second (or later) times it will show the aux file content. 
+![Next time](Screenshot-AuxFileAlreadyCreated.png)
