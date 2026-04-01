@@ -8,12 +8,11 @@
 
     <div id="tool-info">
         <!-- This is where the tool's information will be displayed -->
-
     </div>
 <script>
 
-    // Example of how to call an external tool with parameters
-    function callSynthFileTool() {
+    // Example of how to call an external tool with parameters, NOT functional
+    function callSynthFileTool(fileContent) {
         const params = {
             // Add necessary parameters here
         };
@@ -100,12 +99,46 @@
 
     //--- Retrieval and Storing functions ---
 
-    // Looks like it really need the API-TOKEN 
-    // and I cannot get that to work, and also do not want it either?
-    function uploadAuxFile(queryParams, fileContent) {
+    function createAuxFile(queryParams) {
+        // Continue with the rest of the uploadAuxFile logic after listing is done
+        const auxFileContent = new Blob(['{ "synthetic": "This is a synthetic auxiliary file content based on the original file content. It can be used for testing purposes." }'], 
+        { type: 'application/json' });
+
+        const formData = new FormData();
+        formData.append('file', auxFileContent, 'synthetic_aux_file.json');
+        formData.append('origin', 'synth');
+        formData.append('isPublic', 'true');
+        formData.append('type', 'synth');//'synthJson');
+
+        console.log('Uploading auxiliary file to:', queryParams.auxFileUploadUrl);
+        fetch(queryParams.auxFileUploadUrl, {
+            method: 'POST',
+            // headers: {
+            //     'X-Dataverse-Key': queryParams.apiToken
+            // },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Auxiliary file upload response:', data);
+            // ad a bit of info
+            const outputDiv = document.getElementById('tool-info');
+            const fileContentDiv = document.createElement('div');
+            fileContentDiv.textContent = 'Auxiliary File created!';
+            outputDiv.appendChild(fileContentDiv);
+        })
+        .catch(error => {
+            console.error('Error uploading auxiliary file:', error);
+            // Note that a 409 Conflict error is expected if the auxiliary file already exists
+        });
+    }
+
+    function processContent(queryParams, fileContent) {
         // This function would contain the logic to upload an auxiliary file
         // using the query parameters and the file content.
-        console.log('Uploading auxiliary file with parameters:', queryParams);
+        console.log('Processing file with parameters:', queryParams);
+
+        // Maybe we have  an apiKey, but I could not get this working
         console.log('token:', queryParams.apiToken);
 
         // first list the aux files
@@ -115,10 +148,9 @@
         .then(response => response.json())
         .then(list_data => {
             console.log('Auxiliary files list response:', list_data);       
-            // TODO should do no upload ... so not in finally
 
-            // should do no upload, but try to retrieve the aux file content if it exists
-            if (list_data.data.length > 0) {
+            // try to retrieve the aux file content if it exists
+            if (list_data.data && list_data.data.length > 0) {
                 console.log('Auxiliary file already exists, retrieving contents...');
                 fetch(queryParams.auxFileContentsUrl, {
                     method: 'GET'
@@ -132,54 +164,30 @@
                     console.error('Error retrieving auxiliary file content:', error);
                 });
             } else {
-                console.log('No auxiliary file exists, proceeding with upload.');
+                console.log('No auxiliary file exists, but there was no 404 error?');
+                console.log('However, starting the create...');
+                createAuxFile(queryParams);
             }
-
         })
         .catch(error => {
             // Not Found is expected when there is no aux file yet
             // handle it gracefully and continue with the upload
             if (error.status === 404) {
-                console.warn('No auxiliary files found, proceeding with upload.');
+                console.warn('No auxiliary files found, should create one.');
+                console.log('Starting the create...');
+                createAuxFile(queryParams);
             } else {
                 // For other errors, we might want to stop the process or handle it differently
-                console.error('Unexpected error listing auxiliary files, stopping process.');
+                console.error('Unexpected error listing auxiliary files, stopping process: ', error);
                 return;
             }
         })
         .finally(() => {
-            // TODO move to separate function
-
-            // Continue with the rest of the uploadAuxFile logic after listing is done
-            const auxFileContent = new Blob(['{ "synthetic": "This is a synthetic auxiliary file content based on the original file content. It can be used for testing purposes." }'], 
-            { type: 'application/json' });
-
-            const formData = new FormData();
-            formData.append('file', auxFileContent, 'synthetic_aux_file.json');
-            formData.append('origin', 'synth');
-            formData.append('isPublic', 'true');
-            formData.append('type', 'synth');//'synthJson');
-
-            console.log('Uploading auxiliary file to:', queryParams.auxFileUploadUrl);
-            fetch(queryParams.auxFileUploadUrl, {
-                method: 'POST',
-                // headers: {
-                //     'X-Dataverse-Key': queryParams.apiToken
-                // },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Auxiliary file upload response:', data);
-            })
-            .catch(error => {
-                console.error('Error uploading auxiliary file:', error);
-               // Note that a 409 Conflict error is expected if the auxiliary file already exists
-            });
+            console.log('Finished processContent.');
         });
     }  
 
-    // This function would contain the logic to continue the process
+    // This function contains the logic to continue the process
     // using the query parameters.
     function continueWithParams(queryParams) {
         console.log('Continuing with parameters:', queryParams);
@@ -196,8 +204,8 @@
                     // Note that we have the whole file content already...
                     displayFileContent(fileContent);
                     // there is no waiting... just displaying is not a real problem, it does not change
-                    // we can start uploading immediately for now
-                    uploadAuxFile(queryParams, fileContent);
+                    // we can try start processing immediately for now
+                    processContent(queryParams, fileContent);
                 })
                 .catch(error => {
                     console.error('Error retrieving file content:', error);
@@ -277,32 +285,35 @@
             });
         } else {
             // No callback, I guess this is the case for old versions of Dataverse
-            // probably I do not want or need to support this, but copied it from retriever.js.
-            console.log('No callback provided, extracting parameters from URL');
+            // probably I do not want or need to support this, 
+            // but copied it from the previewers retriever.js.
+            console.log('No callback provided, nothing to do');
 
-            urlParams.forEach((value, key) => {
-                queryParams[key] = value;
-            });
-            var fileUrl = queryParams.siteUrl + "/api/access/datafile/"
-                + queryParams.fileid + "?gbrecs=true";
-            var fileDownloadUrl = queryParams.siteUrl + "/api/access/datafile/"
-                + queryParams.fileid + "?gbrecs=false";
-            var versionUrl = queryParams.siteUrl + "/api/datasets/"
-                + queryParams.datasetid + "/versions/"
-                + queryParams.datasetversion;
-            var apiKey = queryParams.key;
-            if (apiKey != null) {
-                fileUrl = fileUrl + "&key=" + apiKey;
-                fileDownloadUrl = fileUrl + "&key=" + apiKey;
-                versionUrl = versionUrl + "?key=" + apiKey;
-            }
-            queryParams.fileUrl = fileUrl;
-            queryParams.fileDownloadUrl = fileDownloadUrl;
-            queryParams.versionUrl = versionUrl;
-            continueWithParams(queryParams);
+            // could try to extract the parameters from the URL directly
+            // urlParams.forEach((value, key) => {
+            //     queryParams[key] = value;
+            // });
+            // var fileUrl = queryParams.siteUrl + "/api/access/datafile/"
+            //     + queryParams.fileid + "?gbrecs=true";
+            // var fileDownloadUrl = queryParams.siteUrl + "/api/access/datafile/"
+            //     + queryParams.fileid + "?gbrecs=false";
+            // var versionUrl = queryParams.siteUrl + "/api/datasets/"
+            //     + queryParams.datasetid + "/versions/"
+            //     + queryParams.datasetversion;
+            // var apiKey = queryParams.key;
+            // if (apiKey != null) {
+            //     fileUrl = fileUrl + "&key=" + apiKey;
+            //     fileDownloadUrl = fileUrl + "&key=" + apiKey;
+            //     versionUrl = versionUrl + "?key=" + apiKey;
+            // }
+            // queryParams.fileUrl = fileUrl;
+            // queryParams.fileDownloadUrl = fileDownloadUrl;
+            // queryParams.versionUrl = versionUrl;
+            // continueWithParams(queryParams);
         }
 
-        // nothing to do here, the rest of the logic is in the continueWithParams function, which is called after we have the query parameters ready.
+        // nothing to do here, the rest of the logic is in the continueWithParams function, 
+        // which is called after we have the query parameters ready.
     };
 
 </script>
