@@ -2,6 +2,8 @@ Dataverse External Tools
 ========================
 
 Investigate how we can use the 'External Tools' functionality of Dataverse to provide the synthetic data generation for a (tabular) file. 
+Note that this approach is similar to what was done for OpenDP; https://guides.dataverse.org/en/latest/user/dataset-management.html#creating-and-depositing-differentially-private-metadata-experimental
+
 
 Documentation on this functionality can be found here: 
 https://guides.dataverse.org/en/latest/installation/external-tools.html
