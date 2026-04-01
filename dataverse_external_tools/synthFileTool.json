@@ -28,6 +28,18 @@
       "httpMethod":"GET",
       "urlTemplate":"/api/v1/access/datafile/{fileId}",
       "timeOut":270
+    },
+    {
+      "name":"listAuxFiles",
+      "httpMethod":"GET",
+      "urlTemplate":"/api/v1/access/datafile/{fileId}/auxiliary/synth",
+      "timeOut":270
+    },
+    {
+      "name":"uploadAuxFile",
+      "httpMethod":"POST",
+      "urlTemplate":"/api/v1/access/datafile/{fileId}/auxiliary/synthJson/0.1",
+      "timeOut":270
     }
   ]
 }

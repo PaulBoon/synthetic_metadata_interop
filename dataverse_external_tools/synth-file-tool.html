@@ -81,6 +81,66 @@
         outputDiv.appendChild(fileLinesList);
     }
 
+    // Looks like it really need the API-TOKEN 
+    // and I cannot get that to work, and also do not want it either?
+    function uploadAuxFile(queryParams, fileContent) {
+        // This function would contain the logic to upload an auxiliary file
+        // using the query parameters and the file content.
+        console.log('Uploading auxiliary file with parameters:', queryParams);
+        console.log('token:', queryParams.apiToken);
+
+        // first list the aux files
+        fetch(queryParams.auxFilesListUrl, {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(list_data => {
+            console.log('Auxiliary files list response:', list_data);       
+            // TODO should do no upload ... so not in finally
+        })
+        .catch(error => {
+            // Not Found is expected when there is no aux file yet
+            // handle it gracefully and continue with the upload
+            if (error.status === 404) {
+                console.warn('No auxiliary files found, proceeding with upload.');
+            } else {
+                // For other errors, we might want to stop the process or handle it differently
+                console.error('Unexpected error listing auxiliary files, stopping process.');
+                return;
+            }
+        })
+        .finally(() => {
+            // TODO move to separate function
+
+            // Continue with the rest of the uploadAuxFile logic after listing is done
+            const auxFileContent = new Blob(['{ "synthetic": "This is a synthetic auxiliary file content based on the original file content. It can be used for testing purposes." }'], 
+            { type: 'application/json' });
+
+            const formData = new FormData();
+            formData.append('file', auxFileContent, 'synthetic_aux_file.json');
+            formData.append('origin', 'synth');
+            formData.append('isPublic', 'true');
+            formData.append('type', 'synth');//'synthJson');
+
+            console.log('Uploading auxiliary file to:', queryParams.auxFileUploadUrl);
+            fetch(queryParams.auxFileUploadUrl, {
+                method: 'POST',
+                // headers: {
+                //     'X-Dataverse-Key': queryParams.apiToken
+                // },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Auxiliary file upload response:', data);
+            })
+            .catch(error => {
+                console.error('Error uploading auxiliary file:', error);
+            });
+        });
+
+    }  
+
     // This function would contain the logic to continue the process
     // using the query parameters.
     function continueWithParams(queryParams) {
@@ -97,10 +157,14 @@
                 .then(fileContent => {
                     // Note that we have the whole file content already...
                     displayFileContent(fileContent);
+                    // there is no waiting... just displaying is not a real problem, it does not change
+                    // we can start uploading immediately for now
+                    uploadAuxFile(queryParams, fileContent);
                 })
                 .catch(error => {
                     console.error('Error retrieving file content:', error);
-                }); 
+                });
+
         } else {
             console.warn('No fileUrl provided in query parameters, cannot retrieve file content.');
         }
@@ -111,11 +175,11 @@
         var queryParams = {};
 
         // get the query parameters from the URL
-        queryParams = new URLSearchParams(window.location.search);
+        var urlParams = new URLSearchParams(window.location.search);
         
-        displayUrlParams(queryParams);
+        displayUrlParams(urlParams);
 
-        var locale = queryParams.get('locale');
+        var locale = urlParams.get('locale');
         if (locale == null) {
             locale = 'en';
         }
@@ -125,9 +189,10 @@
         // The decoded value is a signed URL that can be called to retrieve a JSON response 
         // containing all of the queryParameters and allowedApiCalls specified 
         // in the manifest.
-        if (queryParams.has("callback")) {
-            var callback = atob(queryParams.get("callback"));
-            
+        if (urlParams.has("callback")) {
+            var callback = atob(urlParams.get("callback"));
+            console.log('Decoded callback URL:', callback);
+
             fetch(callback, {
                 method: 'GET',
                 headers: {
@@ -137,6 +202,7 @@
             .then(response => response.json())
             .then(json => {
                 console.log('Callback Response:', json.data);
+
                 queryParams = json.data.queryParameters;
                 var urls = json.data.signedUrls;
                 for (var i in urls) {
@@ -154,6 +220,12 @@
                         case 'retrieveDataFile': // Only got this one configured!
                             queryParams.fileUrl = url.signedUrl;
                             break;
+                        case 'listAuxFiles':
+                            queryParams.auxFilesListUrl = url.signedUrl;
+                            break;
+                        case 'uploadAuxFile':
+                            queryParams.auxFileUploadUrl = url.signedUrl;
+                            break;
                         default:
                     }
                 }
@@ -167,7 +239,7 @@
             // probably I do not want or need to support this, but copied it from retriever.js.
             console.log('No callback provided, extracting parameters from URL');
 
-            params.forEach((value, key) => {
+            urlParams.forEach((value, key) => {
                 queryParams[key] = value;
             });
             var fileUrl = queryParams.siteUrl + "/api/access/datafile/"

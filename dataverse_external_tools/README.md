@@ -61,6 +61,26 @@ The following screenshot show the output of the (fake) tool for the test.tab (cs
 ![Screenshot showing parameters and retrieved file data](Screenshot-FileRetrieveAndDisplayData.png).
 
 
+### Storing related data
 
+The idea would be to store the MetaSynth schema file (Generative Metadata Format), which would allow for the synthetic data generation without having to look at the original data again. There is a mechanism in Dataverse for storing files related to archived files called; auxiliary files. 
+This is probably also what is being used by the 'OpenDP' tool, but I do not know the details. You could also use this aux files mechanism to store the synthetic data, but I am not going to test that. 
 
+While there is no connection to the synthetic data generation tool yet, which should ideally be a web service, we can use some fake content instead. 
 
+Documentation on the auxiliary file functionality can be found here: 
+https://guides.dataverse.org/en/latest/developers/aux-file-support.html
+
+Note that the guide shows how you can manipulate (create, list, delete) these aux files from the commandline with `curl` while experimenting. 
+
+#### Aux file and external tools limitations
+
+During experimenting a limitation was discovered for the aux file creation; we do not get signed URLs when the file is publicly available, making the POST request fail. 
+The workaround is to make the Dataset into Draft (for instance by restricting it) and or make the file restricted.  
+
+Maybe it is better to create an issue for this on the Github Repo, and at least have this limitation explicitly mentioned in the documentation of the external tools.  
+
+#### Preliminary evaluation
+
+The aux files mechanism can be used in conjunction with the external tools mechanism. 
+It is possible to extract the data, do some processing and store a result in an aux file. 
