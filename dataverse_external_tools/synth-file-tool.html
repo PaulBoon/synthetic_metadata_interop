@@ -85,6 +85,7 @@
     function displayAuxFileContent(fileContent) {
         const outputDiv = document.getElementById('tool-info');
         const fileContentDiv = document.createElement('div');
+        fileContentDiv.id = 'aux-file-content';
         fileContentDiv.textContent = 'Auxiliary File Content (first 10 lines):';
         outputDiv.appendChild(fileContentDiv);
         const fileLines = fileContent.split('\n').slice(0, 10);
@@ -94,7 +95,47 @@
             li.textContent = line;
             fileLinesList.appendChild(li);
         });
-        outputDiv.appendChild(fileLinesList);
+        fileContentDiv.appendChild(fileLinesList);
+    }
+
+    function displayDeleteAuxFileButton(queryParams) {
+        const outputDiv = document.getElementById('tool-info');
+        const deleteButton = document.createElement('button');
+        deleteButton.id = 'delete-aux-file-btn';
+        deleteButton.textContent = 'Delete Auxiliary File';
+        deleteButton.onclick = function() {
+            // This function would contain the logic to delete the auxiliary file
+            // using the query parameters.
+            console.log('Deleting auxiliary file with parameters:', queryParams);
+            
+            fetch(queryParams.auxFileDeleteUrl, {
+                method: 'DELETE',
+                // headers: {
+                //     'Content-Type': 'application/json'
+                // },
+                // body: JSON.stringify({ /* necessary parameters for deletion */ })
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log('Auxiliary file deleted:', data);
+                // Optionally, you could also remove the displayed content or update the UI accordingly
+                // delete related stuff
+                const deleteButton = document.getElementById('delete-aux-file-btn');
+                if (deleteButton) {
+                    deleteButton.remove();
+                }
+                const auxFileContentDiv = document.getElementById('aux-file-content');
+                if (auxFileContentDiv) {
+                    // remove the div and everything inside it
+                    //auxFileContentDiv.innerHTML = '';
+                    auxFileContentDiv.remove();
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting auxiliary file:', error);
+            });
+        };
+        outputDiv.appendChild(deleteButton);
     }
 
     //--- Retrieval and Storing functions ---
@@ -162,6 +203,7 @@
                 .then(aux_file_content => {
                     console.log('Auxiliary file content:', aux_file_content);
                     displayAuxFileContent(aux_file_content);
+                    displayDeleteAuxFileButton(queryParams);
                 })
                 .catch(error => {
                     console.error('Error retrieving auxiliary file content:', error);
@@ -274,6 +316,9 @@
                             break;
                         case 'retrieveAuxFileContents':
                             queryParams.auxFileContentsUrl = url.signedUrl;
+                            break;
+                        case 'deleteAuxFile':
+                            queryParams.auxFileDeleteUrl = url.signedUrl;
                             break;
                         case 'uploadAuxFile':
                             queryParams.auxFileUploadUrl = url.signedUrl;

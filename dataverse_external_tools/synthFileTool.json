@@ -42,6 +42,12 @@
       "timeOut": 270
     },
     {
+      "name":"deleteAuxFile",
+      "httpMethod":"DELETE",
+      "urlTemplate":"/api/v1/access/datafile/{fileId}/auxiliary/synthJson/0.1",
+      "timeOut":270
+    },
+    {
       "name":"uploadAuxFile",
       "httpMethod":"POST",
       "urlTemplate":"/api/v1/access/datafile/{fileId}/auxiliary/synthJson/0.1",
