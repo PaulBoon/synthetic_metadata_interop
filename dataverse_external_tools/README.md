@@ -82,7 +82,9 @@ The aux file can be downloaded via the same `Access File` dropdown from where yo
 During experimenting a limitation was discovered for the aux file creation; we do not get signed URLs when the file is publicly available, making the POST request fail. 
 The workaround is to make the Dataset into Draft (for instance by restricting it) and or make the file restricted.  
 
-Maybe it is better to create an issue for this on the Github Repo, and at least have this limitation explicitly mentioned in the documentation of the external tools.  
+Maybe it is better to create an issue for this on the Github Repo, and at least have this limitation explicitly mentioned in the documentation of the external tools. 
+Issue: https://github.com/IQSS/dataverse/issues/12278
+ 
 
 #### Preliminary evaluation
 
