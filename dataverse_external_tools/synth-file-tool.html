@@ -99,10 +99,13 @@
 
     //--- Retrieval and Storing functions ---
 
-    function createAuxFile(queryParams) {
-        // Continue with the rest of the uploadAuxFile logic after listing is done
-        const auxFileContent = new Blob(['{ "synthetic": "This is a synthetic auxiliary file content based on the original file content. It can be used for testing purposes." }'], 
-        { type: 'application/json' });
+    function createAuxFile(queryParams) { 
+
+        const auxFileJson = {
+            synthetic: "This is a synthetic auxiliary file content based on the original file content. It can be used for testing purposes.",
+            timestamp: new Date().toISOString(),
+        };
+        const auxFileContent = new Blob([JSON.stringify(auxFileJson, null, 2)], { type: 'application/json' });
 
         const formData = new FormData();
         formData.append('file', auxFileContent, 'synthetic_aux_file.json');
