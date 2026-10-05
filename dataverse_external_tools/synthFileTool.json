@@ -1,0 +1,57 @@
+{
+  "displayName": "Synthetic Replicant File Tool",
+  "description": "A tool that is enabling to generate a synthetic representation of a file!",
+  "toolName": "SynthFileTool",
+  "scope": "file",
+  "types": [
+    "explore"
+  ],
+  "toolUrl": "https://dev.ssh.datastations.nl/custom/synth-file-tool.html",
+  "contentType": "text/tab-separated-values",
+  "httpMethod":"GET",
+  "toolParameters": {
+    "queryParameters": [
+      {
+        "fileid": "{fileId}"
+      },
+      {
+        "datasetPid": "{datasetPid}"
+      },
+      {
+        "locale":"{localeCode}"
+      }
+    ]
+  },
+  "allowedApiCalls": [
+    {
+      "name":"retrieveDataFile",
+      "httpMethod":"GET",
+      "urlTemplate":"/api/v1/access/datafile/{fileId}",
+      "timeOut":270
+    },
+    {
+      "name":"listAuxFiles",
+      "httpMethod":"GET",
+      "urlTemplate":"/api/v1/access/datafile/{fileId}/auxiliary/synth",
+      "timeOut":270
+    },
+    {
+      "name": "retrieveAuxFileContents",
+      "httpMethod": "GET",
+      "urlTemplate": "/api/v1/access/datafile/{fileId}/auxiliary/synthJson/0.1?gbrecs=true",
+      "timeOut": 270
+    },
+    {
+      "name":"deleteAuxFile",
+      "httpMethod":"DELETE",
+      "urlTemplate":"/api/v1/access/datafile/{fileId}/auxiliary/synthJson/0.1",
+      "timeOut":270
+    },
+    {
+      "name":"uploadAuxFile",
+      "httpMethod":"POST",
+      "urlTemplate":"/api/v1/access/datafile/{fileId}/auxiliary/synthJson/0.1",
+      "timeOut":270
+    }
+  ]
+}
