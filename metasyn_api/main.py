@@ -7,6 +7,7 @@
 
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 from metasyn import MetaFrame
@@ -20,6 +21,14 @@ from typing import Optional
 app = FastAPI(
     title="Metasyn API",
     description="API for generating synthetic data with metasyn"
+)
+
+# Wildcard origin is incompatible with credentials, so allow_credentials stays False.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # -----------------------------
@@ -50,7 +59,8 @@ async def fit_model(file: UploadFile = File(...)):
             tmp_path = tmp.name
 
         # Load data and fit model
-        df = pd.read_csv(tmp_path)
+        # Auto-detect the delimiter; Dataverse serves ingested tabular files as TSV.
+        df = pd.read_csv(tmp_path, sep=None, engine="python")
         model = MetaFrame.fit_dataframe(df)
 
         # Save model to a temporary JSON file (metasyn expects file-based save/load)

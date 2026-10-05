@@ -13,16 +13,15 @@
 
     // Example of how to call an external tool with parameters, NOT functional
     function callSynthFileTool(fileContent) {
-        const params = {
-            // Add necessary parameters here
-        };
+        //console.log('Calling Synth File Tool with file content:', fileContent);
 
+        const formData = new FormData();
+        formData.append('file', new Blob([fileContent], { type: 'text/csv' }), 'input_data.csv');
+
+        // No Content-Type header: the browser must set it to include the multipart boundary.
         fetch('http://127.0.0.1:8000/fit-model/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: fileContent//JSON.stringify(params)
+            body: formData
         })
         .then(response => response.text())
         .then(data => {
