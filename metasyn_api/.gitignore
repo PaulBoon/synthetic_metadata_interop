@@ -1,0 +1,5 @@
+__pycache__/
+fit_response.json
+model.json
+payload.json
+synth_response.json
