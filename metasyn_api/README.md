@@ -12,19 +12,45 @@ It does not include any authentication or security features, and is intended for
 - `synthetic.csv` contains the resulting synthetic version of the input data
 
 ## Instructions 
-After installing the required Python packages, you can start the API with the following command: 
+
+### Install packages
+Optional: Create a virtual environment, for instance with uv: 
+```bash
+python3 -m venv .env
+```
+Optional: Activate the virtual environment: 
+```bash
+source .env/bin/activate
+```
+
+Install the required Python packages: 
+```
+uv pip install -r requirements.txt
+```
+
+If you don't use uv, you can just run 
+
+```bash
+pip install -r requirements.txt
+```
+
+### Start the API
+
+You can start the API with the following command: 
 
 ```bash
 uvicorn main:app --reload
 ```
 
-You can now see the documentation here: 
+You can now see the documentation here and test the endpoints: 
 
 ```
 http://127.0.0.1:8000/docs
 ```
 
-You can test or use the endpoints there by following the instructions, but it will not allow you to save the resulting JSON and CSV. To save the model and synthetic data files to your disk, run the following commands: 
+
+### Use the API endpoints
+To save the model and synthetic data files to your disk, run the following commands: 
 
 
 Fit model (upload CSV, save response):
