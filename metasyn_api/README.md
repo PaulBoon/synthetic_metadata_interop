@@ -42,9 +42,18 @@ http://127.0.0.1:8000/docs
 ```
 
 
-### Use the API endpoints
-To save the model and synthetic data files to your disk, run the following commands: 
 
+### Start the user interface 
+Run the following command to start the UI: 
+
+```python
+python frontend/app_flask.py
+```
+
+It will run on `http://127.0.0.1:5000`
+
+### Manually use the API endpoints
+To save the model and synthetic data files to your disk manually without the UI, run the following commands: 
 
 Fit model (upload CSV, save response):
 ``` bash
