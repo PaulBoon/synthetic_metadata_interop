@@ -16,7 +16,7 @@ It does not include any authentication or security features, and is intended for
 ### Install packages
 Optional: Create a virtual environment, for instance with uv: 
 ```bash
-`uv venv .env` 
+uv venv .env
 ```
 Optional: Activate the virtual environment: 
 ```bash
