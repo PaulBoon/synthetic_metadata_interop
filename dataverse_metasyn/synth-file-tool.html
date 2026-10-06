@@ -10,28 +10,29 @@
         <!-- This is where the tool's information will be displayed -->
     </div>
 <script>
-
+    const API_URL = 'http://127.0.0.1:8000';
     var g_fileMetadata;
     var g_fileContent;
     var g_isGmf = false;
 
     // get the GMF json from the Synth File Tool response
     function synthFileToolFitModel(fileContent) {
-        //console.log('Calling Synth File Tool with file content:', fileContent);
+        console.log('Calling Synth File Tool to fit model');
 
+        // Note that we have tab files, but we use csv for the content type
+        // The api seem to handle it correctly
         const formData = new FormData();
         formData.append('file', new Blob([fileContent], { type: 'text/csv' }), 'input_data.csv');
 
         // No Content-Type header: the browser must set it to include the multipart boundary.
-        fetch('http://127.0.0.1:8000/fit-model/', {
+        fetch(API_URL + '/fit-model/', {
             method: 'POST',
             body: formData
         })
         .then(response => response.text())
         .then(data => {
             console.log('Tool Output:', data);
-            // extract the relevant information from the tool output
-            // parse JSON returned by the tool
+
             const jsonData = JSON.parse(data);
             console.log('Parsed JSON Data:', jsonData);
             console.log('Status: ', jsonData.status);
@@ -39,7 +40,6 @@
                 console.error('Model JSON not found in tool output');
                 return;
             }
-            // get the model_json
             const modelJson = jsonData.model_json;
             console.log('Model JSON:', modelJson);
             displayModelJson(modelJson);
@@ -51,26 +51,23 @@
 
     function synthFileToolSynthesize(fileContent) {
         console.log('Calling Synth File Tool to synthesize with the GMF file');
-
+        let num_rows = 10; // Just testing with 10 rows for now
+        
+        // construct request json        
         const jsonData = JSON.parse(fileContent);
-        // construct request json
         const requestJson = {
             "model_json": jsonData,
-            "num_rows": 10
+            "num_rows": num_rows
         };
-
         console.log('Request JSON for synthesis:', requestJson);
 
-        fetch('http://127.0.0.1:8000/synthesize/', {
+        fetch(API_URL + '/synthesize/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestJson)
         })
         .then(response => response.text())
         .then(data => {
-            //console.log('Tool Output:', data);
-            // extract the relevant information from the tool output
-            // not json ... need to figure what to do with it
             console.log('Raw Tool Output:', data);
 
             // extract synthetic_data_csv from json response
@@ -189,10 +186,8 @@
                 .then(response => response.text())
                 .then(fileContent => {
                     g_fileContent = fileContent;
-                    //displayFileContent(fileContent);
 
-                    // determine if it is (possibly valid?) GMF, so parse
-                    // parse JSON returned by the tool
+                    // determine if it is GMF (possibly valid?)
                     try {
                         const jsonData = JSON.parse(g_fileContent);
 
@@ -243,25 +238,35 @@
 
         displayQueryParams(queryParams);
 
-        var metadataReady = Promise.resolve();
-        if (queryParams.versionUrl) {
-            console.log('Version URL is available:', queryParams.versionUrl);
-            // note that we need the dataset metadata to get to the file metadata
-
-            metadataReady = fetchFileMetadata(queryParams.versionUrl, queryParams.fileid)
-                .then(fileMetadata => {
-                    if (fileMetadata) {
-                        console.log('Retrieved file metadata:', fileMetadata);
-                        g_fileMetadata = fileMetadata;
-                        return retrieveJsonFile(queryParams);
-                    } else {
-                        console.warn('No matching file metadata found for file ID:', queryParams.fileid);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error retrieving file metadata:', error);
-                });
+        // Check for essential query parameters before proceeding
+        if (!queryParams.versionUrl) {
+            console.error('Cannot continue without version URL.');
+            return;
         }
+        if (!queryParams.fileUrl) {
+            console.error('Cannot continue without file URL.');
+            return;
+        }
+
+        var metadataReady = Promise.resolve();
+        // note that we need the dataset metadata to get to the file metadata
+        metadataReady = fetchFileMetadata(queryParams.versionUrl, queryParams.fileid)
+            .then(fileMetadata => {
+                if (fileMetadata) {
+                    console.log('Retrieved file metadata:', fileMetadata);
+                    g_fileMetadata = fileMetadata;
+                    // only for json we should check if it is a GMF JSON file
+                    if (g_fileMetadata.contentType === 'application/json') {
+                        return retrieveJsonFile(queryParams);
+                    }
+                } else {
+                    console.warn('No matching file metadata found for file ID:', queryParams.fileid);
+                }
+            })
+            .catch(error => {
+                console.error('Error retrieving file metadata:', error);
+            });
+
 
         metadataReady.then(() => {
             // metadata has been retrieved and stored in g_fileMetadata if available
@@ -269,25 +274,24 @@
             console.log('Metadata is ready. g_fileMetadata:', g_fileMetadata);
             
             // queryParams.fileUrl should contain the signed URL to retrieve the file contents
-            if (queryParams.fileUrl) {
-                console.log('File URL is available but fetching is not done now.');
 
-                // can we determine the type, is it json to tabular format?
-                // get the file metadata from dataverse?
-                // This could involve making an API call to Dataverse to retrieve metadata about the file, such as its type, size, and other relevant information.
-                
-
-                // enable a button to pass the file to an external tool
-                // For example, we could create a button element and set its onclick handler
-                // to open the file URL in a new tab or pass it to an external tool.
-                var button = document.createElement('button');
-                if (g_isGmf) {
-                    button.textContent = `Pass GMF JSON file to External Tool; create synthetic data`;
-                } else {
-                    button.textContent = `Pass tabular file to External Tool; create GMF JSON`;
-                }
+            // enable a button to pass the file to an external tool
+            var button = document.createElement('button');
+            if (g_isGmf) {
+                button.textContent = `Pass GMF JSON file to External Tool; create synthetic data`;
                 button.onclick = function() {
+                    // already got the file content in g_fileContent
                     metadataReady
+                    .then(() => {
+                        displayFileContent(g_fileContent);
+                        synthFileToolSynthesize(g_fileContent); 
+                    });
+                };
+            } else {
+                button.textContent = `Pass tabular file to External Tool; create GMF JSON`;
+                // need to get the file content first
+                button.onclick = function() {
+                metadataReady
                     .then(() => fetch(queryParams.fileUrl))
                     .then(response => response.text())
                     .then(fileContent => {
@@ -295,26 +299,19 @@
                         displayFileContent(fileContent);
                         // there is no waiting... just displaying is not a real problem, it does not change
                         // we can try start processing immediately for now
-                        //processContent(queryParams, fileContent);
-                        if (g_isGmf) {
-                            synthFileToolSynthesize(fileContent); // retrieve again, not optimal!
-                        } else {
-                            synthFileToolFitModel(fileContent);
-                        }
+                        synthFileToolFitModel(fileContent);
                     })
                     .catch(error => {
                         console.error('Error retrieving file content:', error);
                     });
                 };
-                document.body.appendChild(button);
-            } else {
-                console.warn('No fileUrl provided in query parameters, cannot retrieve file content.');
             }
 
+            document.body.appendChild(button);
         });
     }
 
-    // handle onload; get or extract the query parameters
+    // main entry point
     window.onload = function() {
         var queryParams = {};
 
@@ -376,29 +373,29 @@
             // No callback, I guess this is the case for old versions of Dataverse
             // probably I do not want or need to support this, 
             // but copied it from the previewers retriever.js.
-            console.log('No callback provided, nothing to do');
+            console.log('No callback provided, constructing it');
 
-            // could try to extract the parameters from the URL directly
-            // urlParams.forEach((value, key) => {
-            //     queryParams[key] = value;
-            // });
-            // var fileUrl = queryParams.siteUrl + "/api/access/datafile/"
-            //     + queryParams.fileid + "?gbrecs=true";
-            // var fileDownloadUrl = queryParams.siteUrl + "/api/access/datafile/"
-            //     + queryParams.fileid + "?gbrecs=false";
-            // var versionUrl = queryParams.siteUrl + "/api/datasets/"
-            //     + queryParams.datasetid + "/versions/"
-            //     + queryParams.datasetversion;
-            // var apiKey = queryParams.key;
-            // if (apiKey != null) {
-            //     fileUrl = fileUrl + "&key=" + apiKey;
-            //     fileDownloadUrl = fileUrl + "&key=" + apiKey;
-            //     versionUrl = versionUrl + "?key=" + apiKey;
-            // }
-            // queryParams.fileUrl = fileUrl;
-            // queryParams.fileDownloadUrl = fileDownloadUrl;
-            // queryParams.versionUrl = versionUrl;
-            // continueWithParams(queryParams);
+            // try to extract the parameters from the URL directly
+            urlParams.forEach((value, key) => {
+                queryParams[key] = value;
+            });
+            var fileUrl = queryParams.siteUrl + "/api/access/datafile/"
+                + queryParams.fileid + "?gbrecs=true";
+            var fileDownloadUrl = queryParams.siteUrl + "/api/access/datafile/"
+                + queryParams.fileid + "?gbrecs=false";
+            var versionUrl = queryParams.siteUrl + "/api/datasets/"
+                + queryParams.datasetid + "/versions/"
+                + queryParams.datasetversion;
+            var apiKey = queryParams.key;
+            if (apiKey != null) {
+                fileUrl = fileUrl + "&key=" + apiKey;
+                fileDownloadUrl = fileDownloadUrl + "&key=" + apiKey;
+                versionUrl = versionUrl + "?key=" + apiKey;
+            }
+            queryParams.fileUrl = fileUrl;
+            queryParams.fileDownloadUrl = fileDownloadUrl;
+            queryParams.versionUrl = versionUrl;
+            continueWithParams(queryParams);
         }
 
         // nothing to do here, the rest of the logic is in the continueWithParams function, 
