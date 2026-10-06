@@ -16,7 +16,7 @@ It does not include any authentication or security features, and is intended for
 ### Install packages
 Optional: Create a virtual environment, for instance with uv: 
 ```bash
-python3 -m venv .env
+`uv venv .env` 
 ```
 Optional: Activate the virtual environment: 
 ```bash
@@ -27,13 +27,6 @@ Install the required Python packages:
 ```
 uv pip install -r requirements.txt
 ```
-
-If you don't use uv, you can just run 
-
-```bash
-pip install -r requirements.txt
-```
-
 ### Start the API
 
 You can start the API with the following command: 
