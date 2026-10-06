@@ -117,35 +117,41 @@ tr:last-child td { border-bottom: none; }
 <body>
 <div class="container">
 <header>
-<h1>Metasyn API</h1>
+<h1>Create synthetic data with Metasyn</h1>
 <p> Synthetic data is data with (more or less) the same properties as an original dataset but without its privacy-sensitive information. By making synthetic data available instead of (or prior to) the actual dataset, scientists gain faster and easier access to confidential data.</p>
 <span id="apiStatus">Checking API…</span>
 </header>
 
 <div class="steps">
 <section id="fitPanel">
-<h2>1. Fit a model</h2>
-<p>Upload a CSV or TSV file to learn its structure.</p>
+  <h2>1. Fit a model</h2>
+  <p>Upload a CSV or TSV file to learn its structure.</p>
 
-<form id="fitForm">
-<label for="dataFile">Data file</label>
-<input type="file" id="dataFile" accept=".csv,.tsv,.txt,text/csv">
-<button type="submit" id="fitButton">Fit model</button>
-</form>
-<p class="message" id="fitMessage" role="status"></p>
+  <form id="fitForm">
+    <label for="dataFile">Data file</label> 
+    <input type="file" id="dataFile" accept=".csv,.tsv,.txt,text/csv">
+    <button type="submit" id="fitButton">Fit model</button>
+  </form>
+  <p class="message" id="fitMessage" role="status"></p>
 
-<div class="result" id="fitResult" hidden>
-<p class="caption" id="modelCaption"></p>
-<div class="table-wrap">
-<table>
-<thead><tr><th>Column</th><th>Type</th><th>Distribution</th></tr></thead>
-<tbody id="modelBody"></tbody>
-</table>
-</div>
-<div class="actions">
-<button type="button" class="secondary" id="downloadModel">Download model.json</button>
-</div>
-</div>
+  <div class="result" id="fitResult" hidden>
+    <p class="caption" id="modelCaption"></p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Column</th>
+            <th>Type</th>
+            <th>Distribution</th>
+          </tr>
+        </thead>
+        <tbody id="modelBody"></tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button type="button" class="secondary" id="downloadModel">Download model.json</button>
+    </div>
+  </div>
 </section>
 
 <section id="synthPanel" class="locked">
