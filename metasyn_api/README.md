@@ -16,7 +16,7 @@ It does not include any authentication or security features, and is intended for
 ### Install packages
 Optional: Create a virtual environment, for instance with uv: 
 ```bash
-python3 -m venv .env
+uv venv .env
 ```
 Optional: Activate the virtual environment: 
 ```bash
@@ -27,13 +27,6 @@ Install the required Python packages:
 ```
 uv pip install -r requirements.txt
 ```
-
-If you don't use uv, you can just run 
-
-```bash
-pip install -r requirements.txt
-```
-
 ### Start the API
 
 You can start the API with the following command: 
@@ -49,9 +42,18 @@ http://127.0.0.1:8000/docs
 ```
 
 
-### Use the API endpoints
-To save the model and synthetic data files to your disk, run the following commands: 
 
+### Start the user interface 
+Run the following command to start the UI: 
+
+```python
+python frontend/app_flask.py
+```
+
+It will run on `http://127.0.0.1:5000`
+
+### Manually use the API endpoints
+To save the model and synthetic data files to your disk manually without the UI, run the following commands: 
 
 Fit model (upload CSV, save response):
 ``` bash
