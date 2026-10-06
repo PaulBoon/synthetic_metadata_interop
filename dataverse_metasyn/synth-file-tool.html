@@ -1,5 +1,7 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="utf-8">
     <title>Synthetic Replicant File Tool</title>
 </head>
 <body>
@@ -10,6 +12,10 @@
 
     <div id="tool-info">
         <!-- This is where the tool's information will be displayed -->
+    </div>
+    <div id="controls"></div>
+    <div id="results">
+        <!-- Output of the last run; cleared when a new run starts -->
     </div>
 <script>
     const API_URL = 'http://127.0.0.1:8000';
@@ -60,7 +66,7 @@
         formData.append('file', new Blob([fileContent], { type: 'text/csv' }), 'input_data.csv');
 
         // No Content-Type header: the browser must set it to include the multipart boundary.
-        fetch(API_URL + '/fit-model/', {
+        return fetch(API_URL + '/fit-model/', {
             method: 'POST',
             body: formData
         })
@@ -79,24 +85,22 @@
         });
     }
 
-    function synthFileToolSynthesize(fileContent) {
-        let num_rows = 10; // Just testing with 10 rows for now
-
+    function synthFileToolSynthesize(fileContent, numRows) {
         let jsonData;
         try {
             jsonData = JSON.parse(fileContent);
         } catch (error) {
             showError('The file is not valid JSON', error);
-            return;
+            return Promise.resolve();
         }
         const requestJson = {
             "model_json": jsonData,
-            "num_rows": num_rows
+            "num_rows": numRows
         };
-        showStatus(`Synthesizing ${num_rows} rows from the GMF file...`);
+        showStatus(`Synthesizing ${numRows} rows from the GMF file...`);
         console.log('Request JSON for synthesis:', requestJson);
 
-        fetch(API_URL + '/synthesize/', {
+        return fetch(API_URL + '/synthesize/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestJson)
@@ -116,10 +120,32 @@
         });
     }
 
-    //--- Display functions, adding elements to the tool-info div for demonstration purposes ---
+    //--- Display functions, adding elements to the results div (or tool-info for the input) ---
+
+    function clearResults() {
+        document.getElementById('results').replaceChildren();
+    }
+
+    // A blob URL avoids the size limits of data URIs.
+    function addDownloadLink(parent, content, mimeType, filename, text) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
+        link.download = filename;
+        link.textContent = text;
+        parent.appendChild(link);
+    }
+
+    // Disables the button and clears old results while the action runs.
+    function runAction(button, action) {
+        button.disabled = true;
+        clearResults();
+        return Promise.resolve()
+            .then(action)
+            .finally(() => { button.disabled = false; });
+    }
 
     function displayModelJson(modelJson) {
-        const outputDiv = document.getElementById('tool-info');
+        const outputDiv = document.getElementById('results');
         const modelJsonDiv = document.createElement('div');
         modelJsonDiv.textContent = 'Model JSON:';
         outputDiv.appendChild(modelJsonDiv);
@@ -131,15 +157,11 @@
         outputDiv.appendChild(modelJsonPre);
 
         // enable download of the model JSON (GMF)
-        const downloadLink = document.createElement('a');
-        downloadLink.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(modelJson));
-        downloadLink.download = 'gmf.json';
-        downloadLink.textContent = 'Download Model JSON';
-        document.getElementById('tool-info').appendChild(downloadLink);
+        addDownloadLink(outputDiv, JSON.stringify(modelJson), 'application/json', 'gmf.json', 'Download Model JSON');
     }
 
     function displaySyntheticDataCsv(syntheticDataCsv) {
-        const outputDiv = document.getElementById('tool-info');
+        const outputDiv = document.getElementById('results');
         const syntheticDataCsvDiv = document.createElement('div');
         syntheticDataCsvDiv.textContent = 'Synthetic Data CSV:';
         outputDiv.appendChild(syntheticDataCsvDiv);
@@ -151,11 +173,7 @@
         outputDiv.appendChild(syntheticDataCsvPre);
 
         // enable download of the synthetic data CSV
-        const downloadLink = document.createElement('a');
-        downloadLink.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(syntheticDataCsv);
-        downloadLink.download = 'synthetic_data.csv';
-        downloadLink.textContent = 'Download Synthetic Data CSV';
-        document.getElementById('tool-info').appendChild(downloadLink);
+        addDownloadLink(outputDiv, syntheticDataCsv, 'text/csv', 'synthetic_data.csv', 'Download Synthetic Data CSV');
     }
 
     function displayQueryParams(queryParams) {
@@ -191,7 +209,7 @@
     }
 
     function displayFileContent(fileContent) {
-        const outputDiv = document.getElementById('tool-info');
+        const outputDiv = document.getElementById('results');
         const fileContentDiv = document.createElement('div');
         fileContentDiv.textContent = 'File Content (first 10 lines):';
         outputDiv.appendChild(fileContentDiv);
@@ -249,7 +267,7 @@
                     throw new Error('the dataset metadata does not contain a file list');
                 }
                 for (var entry in datafiles) {
-                    if (JSON.stringify(datafiles[entry].dataFile.id) == fileId) {
+                    if (String(datafiles[entry].dataFile.id) === String(fileId)) {
                         return datafiles[entry].dataFile;
                     }
                 }
@@ -308,41 +326,51 @@
             }
             // enable a button to pass the file to an external tool
             var button = document.createElement('button');
+            var controls = document.getElementById('controls');
             if (g_isGmf) {
+                var numRowsLabel = document.createElement('label');
+                numRowsLabel.textContent = 'Number of rows: ';
+                var numRowsInput = document.createElement('input');
+                numRowsInput.type = 'number';
+                numRowsInput.min = '1';
+                numRowsInput.value = '10';
+                numRowsLabel.appendChild(numRowsInput);
+                controls.appendChild(numRowsLabel);
+
                 button.textContent = `Pass GMF JSON file to External Tool; create synthetic data`;
                 button.onclick = function() {
+                    const numRows = parseInt(numRowsInput.value, 10);
+                    if (!(numRows >= 1)) {
+                        showError('Enter a number of rows of 1 or more');
+                        return;
+                    }
                     // already got the file content in g_fileContent
-                    metadataReady
-                    .then(() => {
+                    runAction(button, () => {
                         displayFileContent(g_fileContent);
-                        synthFileToolSynthesize(g_fileContent); 
+                        return synthFileToolSynthesize(g_fileContent, numRows);
                     });
                 };
             } else {
                 button.textContent = `Pass tabular file to External Tool; create GMF JSON`;
                 // need to get the file content first
                 button.onclick = function() {
-                metadataReady
-                    .then(() => {
+                    runAction(button, () => {
                         showStatus('Retrieving the file content...');
-                        return fetch(queryParams.fileUrl);
-                    })
-                    .then(checkResponse)
-                    .then(response => response.text())
-                    .then(fileContent => {
-                        // Note that we have the whole file content already...
-                        displayFileContent(fileContent);
-                        // there is no waiting... just displaying is not a real problem, it does not change
-                        // we can try start processing immediately for now
-                        synthFileToolFitModel(fileContent);
-                    })
-                    .catch(error => {
-                        showError('Could not retrieve the file content', error);
+                        return fetch(queryParams.fileUrl)
+                            .then(checkResponse)
+                            .then(response => response.text())
+                            .then(fileContent => {
+                                displayFileContent(fileContent);
+                                return synthFileToolFitModel(fileContent);
+                            })
+                            .catch(error => {
+                                showError('Could not retrieve the file content', error);
+                            });
                     });
                 };
             }
 
-            document.body.appendChild(button);
+            controls.appendChild(button);
         });
     }
 
@@ -355,11 +383,6 @@
         
         displayUrlParams(urlParams);
 
-        var locale = urlParams.get('locale');
-        if (locale == null) {
-            locale = 'en';
-        }
-
         // From the guide: For tools invoked via a GET call, 
         // Dataverse will include a callback query parameter with a Base64 encoded value. 
         // The decoded value is a signed URL that can be called to retrieve a JSON response 
@@ -370,12 +393,7 @@
             console.log('Decoded callback URL:', callback);
 
             showStatus('Retrieving the tool parameters from Dataverse...');
-            fetch(callback, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-            })
+            fetch(callback)
             .then(checkResponse)
             .then(response => response.json())
             .then(json => {
