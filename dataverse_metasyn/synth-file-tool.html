@@ -3,16 +3,16 @@
     <title>Synthetic Replicant File Tool</title>
 </head>
 <body>
-    <h1>Synthetic Replicant File Tool (Experimental Fake implementation!)</h1>
-    <p>This tool generates a synthetic representation of a file. </p>
+    <h1>Synthetic Replicant File Tool</h1>
+    <p>This tool can be used to generate a synthetic representation of a file. </p>
 
     <div id="tool-info">
         <!-- This is where the tool's information will be displayed -->
     </div>
 <script>
 
-    // Example of how to call an external tool with parameters, NOT functional
-    function callSynthFileTool(fileContent) {
+    // get the GMF json from the Synth File Tool response
+    function synthFileToolFitModel(fileContent) {
         //console.log('Calling Synth File Tool with file content:', fileContent);
 
         const formData = new FormData();
@@ -26,6 +26,19 @@
         .then(response => response.text())
         .then(data => {
             console.log('Tool Output:', data);
+            // extract the relevant information from the tool output
+            // parse JSON returned by the tool
+            const jsonData = JSON.parse(data);
+            console.log('Parsed JSON Data:', jsonData);
+            console.log('Status: ', jsonData.status);
+            if (!jsonData.model_json) {
+                console.error('Model JSON not found in tool output');
+                return;
+            }
+            // get the model_json
+            const modelJson = jsonData.model_json;
+            console.log('Model JSON:', modelJson);
+            displayModelJson(modelJson);
         })
         .catch(error => {
             console.error('Error calling Synth File Tool:', error);
@@ -33,6 +46,26 @@
     }
 
     //--- Display functions, adding elements to the tool-info div for demonstration purposes ---
+
+    function displayModelJson(modelJson) {
+        const outputDiv = document.getElementById('tool-info');
+        const modelJsonDiv = document.createElement('div');
+        modelJsonDiv.textContent = 'Model JSON:';
+        outputDiv.appendChild(modelJsonDiv);
+        // make the div 10 lines height and enable scrolling
+        const modelJsonPre = document.createElement('pre');
+        modelJsonPre.textContent = JSON.stringify(modelJson, null, 2);
+        modelJsonPre.style.height = '10em';
+        modelJsonPre.style.overflow = 'auto';
+        outputDiv.appendChild(modelJsonPre);
+
+        // enable download of the model JSON (GMF)
+        const downloadLink = document.createElement('a');
+        downloadLink.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(modelJson));
+        downloadLink.download = 'gmf.json';
+        downloadLink.textContent = 'Download Model JSON';
+        document.getElementById('tool-info').appendChild(downloadLink);
+    }
 
     function displayQueryParams(queryParams) {
         const outputDiv = document.getElementById('tool-info');
@@ -81,100 +114,12 @@
         outputDiv.appendChild(fileLinesList);
     }
 
-    function displayAuxFileContent(fileContent) {
-        const outputDiv = document.getElementById('tool-info');
-        const fileContentDiv = document.createElement('div');
-        fileContentDiv.id = 'aux-file-content';
-        fileContentDiv.textContent = 'Auxiliary File Content (first 10 lines):';
-        outputDiv.appendChild(fileContentDiv);
-        const fileLines = fileContent.split('\n').slice(0, 10);
-        const fileLinesList = document.createElement('ul');
-        fileLines.forEach(line => {
-            const li = document.createElement('li');
-            li.textContent = line;
-            fileLinesList.appendChild(li);
-        });
-        fileContentDiv.appendChild(fileLinesList);
-    }
 
-    function displayDeleteAuxFileButton(queryParams) {
-        const outputDiv = document.getElementById('tool-info');
-        const deleteButton = document.createElement('button');
-        deleteButton.id = 'delete-aux-file-btn';
-        deleteButton.textContent = 'Delete Auxiliary File';
-        deleteButton.onclick = function() {
-            // This function would contain the logic to delete the auxiliary file
-            // using the query parameters.
-            console.log('Deleting auxiliary file with parameters:', queryParams);
-            
-            fetch(queryParams.auxFileDeleteUrl, {
-                method: 'DELETE',
-                // headers: {
-                //     'Content-Type': 'application/json'
-                // },
-                // body: JSON.stringify({ /* necessary parameters for deletion */ })
-            })
-            .then(response => response.text())
-            .then(data => {
-                console.log('Auxiliary file deleted:', data);
-                // Optionally, you could also remove the displayed content or update the UI accordingly
-                // delete related stuff
-                const deleteButton = document.getElementById('delete-aux-file-btn');
-                if (deleteButton) {
-                    deleteButton.remove();
-                }
-                const auxFileContentDiv = document.getElementById('aux-file-content');
-                if (auxFileContentDiv) {
-                    // remove the div and everything inside it
-                    //auxFileContentDiv.innerHTML = '';
-                    auxFileContentDiv.remove();
-                }
-            })
-            .catch(error => {
-                console.error('Error deleting auxiliary file:', error);
-            });
-        };
-        outputDiv.appendChild(deleteButton);
-    }
+
+
 
     //--- Retrieval and Storing functions ---
 
-    function createAuxFile(queryParams) { 
-
-        const auxFileJson = {
-            synthetic: "This is a synthetic auxiliary file content based on the original file content. It can be used for testing purposes.",
-            timestamp: new Date().toISOString(),
-        };
-        const auxFileContent = new Blob([JSON.stringify(auxFileJson, null, 2)], { type: 'application/json' });
-
-        const formData = new FormData();
-        formData.append('file', auxFileContent, 'synthetic_aux_file.json');
-        formData.append('origin', 'synth');
-        formData.append('isPublic', 'true');
-        formData.append('type', 'synth');//'synthJson');
-
-        console.log('Uploading auxiliary file to:', queryParams.auxFileUploadUrl);
-        fetch(queryParams.auxFileUploadUrl, {
-            method: 'POST',
-            // headers: {
-            //     'X-Dataverse-Key': queryParams.apiToken
-            // },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Auxiliary file upload response:', data);
-            // ad a bit of info
-            const outputDiv = document.getElementById('tool-info');
-            const fileContentDiv = document.createElement('div');
-            fileContentDiv.textContent = 'Auxiliary File created!';
-            outputDiv.appendChild(fileContentDiv);
-        })
-        .catch(error => {
-            console.error('Error uploading auxiliary file:', error);
-            // Note that a 409 Conflict error is expected if the auxiliary file already exists
-        });
-    }
 
     function processContent(queryParams, fileContent) {
         // This function would contain the logic to upload an auxiliary file
@@ -257,6 +202,11 @@
 
             console.log('File URL is available but fetching is not done now.');
 
+            // can we determine the type, is it json to tabular format?
+            // get the file metadat from datavesre?
+            // This could involve making an API call to Dataverse to retrieve metadata about the file, such as its type, size, and other relevant information.
+            
+
             // enable a button to pass the file to an external tool
             // For example, we could create a button element and set its onclick handler
             // to open the file URL in a new tab or pass it to an external tool.
@@ -271,7 +221,7 @@
                     // there is no waiting... just displaying is not a real problem, it does not change
                     // we can try start processing immediately for now
                     //processContent(queryParams, fileContent);
-                    callSynthFileTool(fileContent)
+                    synthFileToolFitModel(fileContent)
                 })
                 .catch(error => {
                     console.error('Error retrieving file content:', error);
