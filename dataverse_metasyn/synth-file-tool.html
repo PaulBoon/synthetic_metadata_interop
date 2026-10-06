@@ -11,6 +11,10 @@
     </div>
 <script>
 
+    var g_fileMetadata;
+    var g_fileContent;
+    var g_isGmf = false;
+
     // get the GMF json from the Synth File Tool response
     function synthFileToolFitModel(fileContent) {
         //console.log('Calling Synth File Tool with file content:', fileContent);
@@ -45,6 +49,48 @@
         });
     }
 
+    function synthFileToolSynthesize(fileContent) {
+        console.log('Calling Synth File Tool to synthesize with the GMF file');
+
+        const jsonData = JSON.parse(fileContent);
+        // construct request json
+        const requestJson = {
+            "model_json": jsonData,
+            "num_rows": 10
+        };
+
+        console.log('Request JSON for synthesis:', requestJson);
+
+        fetch('http://127.0.0.1:8000/synthesize/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestJson)
+        })
+        .then(response => response.text())
+        .then(data => {
+            //console.log('Tool Output:', data);
+            // extract the relevant information from the tool output
+            // not json ... need to figure what to do with it
+            console.log('Raw Tool Output:', data);
+
+            // extract synthetic_data_csv from json response
+            try {
+                const jsonData = JSON.parse(data);
+                if (jsonData.synthetic_data_csv) {
+                    console.log('Synthetic Data CSV:', jsonData.synthetic_data_csv);
+                    displaySyntheticDataCsv(jsonData.synthetic_data_csv);
+                } else {
+                    console.error('Synthetic Data CSV not found in tool output');
+                }
+            } catch (error) {
+                console.error('Error parsing tool output as JSON:', error);
+            }
+        })
+        .catch(error => {
+            console.error('Error calling Synth File Tool:', error);
+        });
+    }
+
     //--- Display functions, adding elements to the tool-info div for demonstration purposes ---
 
     function displayModelJson(modelJson) {
@@ -64,6 +110,26 @@
         downloadLink.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(modelJson));
         downloadLink.download = 'gmf.json';
         downloadLink.textContent = 'Download Model JSON';
+        document.getElementById('tool-info').appendChild(downloadLink);
+    }
+
+    function displaySyntheticDataCsv(syntheticDataCsv) {
+        const outputDiv = document.getElementById('tool-info');
+        const syntheticDataCsvDiv = document.createElement('div');
+        syntheticDataCsvDiv.textContent = 'Synthetic Data CSV:';
+        outputDiv.appendChild(syntheticDataCsvDiv);
+        // make the div 10 lines height and enable scrolling
+        const syntheticDataCsvPre = document.createElement('pre');
+        syntheticDataCsvPre.textContent = syntheticDataCsv;
+        syntheticDataCsvPre.style.height = '10em';
+        syntheticDataCsvPre.style.overflow = 'auto';
+        outputDiv.appendChild(syntheticDataCsvPre);
+
+        // enable download of the synthetic data CSV
+        const downloadLink = document.createElement('a');
+        downloadLink.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(syntheticDataCsv);
+        downloadLink.download = 'synthetic_data.csv';
+        downloadLink.textContent = 'Download Synthetic Data CSV';
         document.getElementById('tool-info').appendChild(downloadLink);
     }
 
@@ -115,66 +181,60 @@
     }
 
 
-
-
-
     //--- Retrieval and Storing functions ---
 
-
-    function processContent(queryParams, fileContent) {
-        // This function would contain the logic to upload an auxiliary file
-        // using the query parameters and the file content.
-        console.log('Processing file with parameters:', queryParams);
-
-        // Maybe we have  an apiKey, but I could not get this working
-        console.log('token:', queryParams.apiToken);
-
-        // first list the aux files
-        fetch(queryParams.auxFilesListUrl, {
-            method: 'GET'
-        })
-        .then(response => response.json())
-        .then(list_data => {
-            console.log('Auxiliary files list response:', list_data);       
-
-            // try to retrieve the aux file content if it exists
-            if (list_data.data && list_data.data.length > 0) {
-                console.log('Auxiliary file already exists, retrieving contents...');
-                fetch(queryParams.auxFileContentsUrl, {
-                    method: 'GET'
-                })
+    function retrieveJsonFile(queryParams) {
+        if (queryParams.fileUrl) {
+            return fetch(queryParams.fileUrl)
                 .then(response => response.text())
-                .then(aux_file_content => {
-                    console.log('Auxiliary file content:', aux_file_content);
-                    displayAuxFileContent(aux_file_content);
-                    displayDeleteAuxFileButton(queryParams);
+                .then(fileContent => {
+                    g_fileContent = fileContent;
+                    //displayFileContent(fileContent);
+
+                    // determine if it is (possibly valid?) GMF, so parse
+                    // parse JSON returned by the tool
+                    try {
+                        const jsonData = JSON.parse(g_fileContent);
+
+                        console.log('Parsed JSON Data:', jsonData);
+                        if (jsonData.gmf_version) {
+                            // we might check that version
+                            console.log('GMF version:', jsonData.gmf_version);
+                            g_isGmf = true;
+                        } else {
+                            console.log('Not a GMF file.');
+                            g_isGmf = false;
+                        }
+                    } catch (error) {
+                        console.warn('Error parsing JSON:', error);
+                        console.log('Not a valid JSON GMF file due to JSON parsing error.');
+                        g_isGmf = false;
+                    }
                 })
                 .catch(error => {
-                    console.error('Error retrieving auxiliary file content:', error);
+                    console.error('Error retrieving file content:', error);
                 });
-            } else {
-                console.log('No auxiliary file exists, but there was no 404 error?');
-                console.log('However, starting the create...');
-                createAuxFile(queryParams);
-            }
-        })
-        .catch(error => {
-            // Not Found is expected when there is no aux file yet
-            // handle it gracefully and continue with the upload
-            if (error.status === 404) {
-                console.warn('No auxiliary files found, should create one.');
-                console.log('Starting the create...');
-                createAuxFile(queryParams);
-            } else {
-                // For other errors, we might want to stop the process or handle it differently
-                console.error('Unexpected error listing auxiliary files, stopping process: ', error);
-                return;
-            }
-        })
-        .finally(() => {
-            console.log('Finished processContent.');
-        });
-    }  
+        }
+        return Promise.resolve();
+    }
+
+    function fetchFileMetadata(versionUrl, fileId) {
+        return fetch(versionUrl)
+            .then(response => response.json())
+            .then(datasetMetadata => {
+                var datafiles = datasetMetadata.data.files;
+                for (var entry in datafiles) {
+                    if (JSON.stringify(datafiles[entry].dataFile.id) == fileId) {
+                        return datafiles[entry].dataFile;
+                    }
+                }
+                return null;
+            })
+            .catch(error => {
+                console.error('Error retrieving dataset metadata:', error);
+                return null;
+            });
+    }
 
     // This function contains the logic to continue the process
     // using the query parameters.
@@ -183,54 +243,75 @@
 
         displayQueryParams(queryParams);
 
-        // download up to 10 lines of the file
-        // queryParams.fileUrl should contain the signed URL to retrieve the file contents
-        if (queryParams.fileUrl) {
-            // console.log('Retrieving file content from:', queryParams.fileUrl);
-            // fetch(queryParams.fileUrl)
-            //     .then(response => response.text())
-            //     .then(fileContent => {
-            //         // Note that we have the whole file content already...
-            //         displayFileContent(fileContent);
-            //         // there is no waiting... just displaying is not a real problem, it does not change
-            //         // we can try start processing immediately for now
-            //         processContent(queryParams, fileContent);
-            //     })
-            //     .catch(error => {
-            //         console.error('Error retrieving file content:', error);
-            //     });
+        var metadataReady = Promise.resolve();
+        if (queryParams.versionUrl) {
+            console.log('Version URL is available:', queryParams.versionUrl);
+            // note that we need the dataset metadata to get to the file metadata
 
-            console.log('File URL is available but fetching is not done now.');
-
-            // can we determine the type, is it json to tabular format?
-            // get the file metadat from datavesre?
-            // This could involve making an API call to Dataverse to retrieve metadata about the file, such as its type, size, and other relevant information.
-            
-
-            // enable a button to pass the file to an external tool
-            // For example, we could create a button element and set its onclick handler
-            // to open the file URL in a new tab or pass it to an external tool.
-            var button = document.createElement('button');
-            button.textContent = 'Pass file to External Tool';
-            button.onclick = function() {
-                fetch(queryParams.fileUrl)
-                .then(response => response.text())
-                .then(fileContent => {
-                    // Note that we have the whole file content already...
-                    displayFileContent(fileContent);
-                    // there is no waiting... just displaying is not a real problem, it does not change
-                    // we can try start processing immediately for now
-                    //processContent(queryParams, fileContent);
-                    synthFileToolFitModel(fileContent)
+            metadataReady = fetchFileMetadata(queryParams.versionUrl, queryParams.fileid)
+                .then(fileMetadata => {
+                    if (fileMetadata) {
+                        console.log('Retrieved file metadata:', fileMetadata);
+                        g_fileMetadata = fileMetadata;
+                        return retrieveJsonFile(queryParams);
+                    } else {
+                        console.warn('No matching file metadata found for file ID:', queryParams.fileid);
+                    }
                 })
                 .catch(error => {
-                    console.error('Error retrieving file content:', error);
+                    console.error('Error retrieving file metadata:', error);
                 });
-            };
-            document.body.appendChild(button);
-        } else {
-            console.warn('No fileUrl provided in query parameters, cannot retrieve file content.');
         }
+
+        metadataReady.then(() => {
+            // metadata has been retrieved and stored in g_fileMetadata if available
+            // g_isGmf indicates whether the file is a GMF JSON file or not
+            console.log('Metadata is ready. g_fileMetadata:', g_fileMetadata);
+            
+            // queryParams.fileUrl should contain the signed URL to retrieve the file contents
+            if (queryParams.fileUrl) {
+                console.log('File URL is available but fetching is not done now.');
+
+                // can we determine the type, is it json to tabular format?
+                // get the file metadata from dataverse?
+                // This could involve making an API call to Dataverse to retrieve metadata about the file, such as its type, size, and other relevant information.
+                
+
+                // enable a button to pass the file to an external tool
+                // For example, we could create a button element and set its onclick handler
+                // to open the file URL in a new tab or pass it to an external tool.
+                var button = document.createElement('button');
+                if (g_isGmf) {
+                    button.textContent = `Pass GMF JSON file to External Tool; create synthetic data`;
+                } else {
+                    button.textContent = `Pass tabular file to External Tool; create GMF JSON`;
+                }
+                button.onclick = function() {
+                    metadataReady
+                    .then(() => fetch(queryParams.fileUrl))
+                    .then(response => response.text())
+                    .then(fileContent => {
+                        // Note that we have the whole file content already...
+                        displayFileContent(fileContent);
+                        // there is no waiting... just displaying is not a real problem, it does not change
+                        // we can try start processing immediately for now
+                        //processContent(queryParams, fileContent);
+                        if (g_isGmf) {
+                            synthFileToolSynthesize(fileContent); // retrieve again, not optimal!
+                        } else {
+                            synthFileToolFitModel(fileContent);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error retrieving file content:', error);
+                    });
+                };
+                document.body.appendChild(button);
+            } else {
+                console.warn('No fileUrl provided in query parameters, cannot retrieve file content.');
+            }
+
+        });
     }
 
     // handle onload; get or extract the query parameters
@@ -282,18 +363,6 @@
                             break;
                         case 'retrieveDataFile': // Only got this one configured!
                             queryParams.fileUrl = url.signedUrl;
-                            break;
-                        case 'listAuxFiles':
-                            queryParams.auxFilesListUrl = url.signedUrl;
-                            break;
-                        case 'retrieveAuxFileContents':
-                            queryParams.auxFileContentsUrl = url.signedUrl;
-                            break;
-                        case 'deleteAuxFile':
-                            queryParams.auxFileDeleteUrl = url.signedUrl;
-                            break;
-                        case 'uploadAuxFile':
-                            queryParams.auxFileUploadUrl = url.signedUrl;
                             break;
                         default:
                     }

@@ -7,7 +7,7 @@
     "explore"
   ],
   "toolUrl": "https://dev.ssh.datastations.nl/custom/synth-file-tool.html",
-  "contentType": "text/tab-separated-values",
+  "contentType": "application/json",
   "httpMethod":"GET",
   "toolParameters": {
     "queryParameters": [
