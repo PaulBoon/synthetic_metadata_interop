@@ -1,0 +1,172 @@
+<!-- frontend/templates/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metasyn – synthetic data</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #eef1f4;
+            --surface: #ffffff;
+            --ink: #1b2430;
+            --muted: #5b6877;
+            --line: #d3dae2;
+            --accent: #0f6b6b;
+            --accent-ink: #ffffff;
+            --error: #b3261e;
+            --ok: #0f6b3a;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #12181f;
+                --surface: #1a222b;
+                --ink: #e6ebf0;
+                --muted: #93a0ae;
+                --line: #2d3947;
+                --accent: #4fc3c3;
+                --accent-ink: #0b1418;
+                --error: #ff8a80;
+                --ok: #7fd9a3;
+            }
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: "IBM Plex Sans", system-ui, sans-serif;
+            line-height: 1.5;
+        }
+        .container { max-width: 1040px; margin: 0 auto; padding: 40px 20px 64px; }
+
+        header { margin-bottom: 32px; }
+        header h1 { margin: 0 0 4px; font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
+        header p { margin: 0; color: var(--muted); max-width: 60ch; }
+        #apiStatus {
+            display: inline-block; margin-top: 14px; padding: 2px 10px;
+            border: 1px solid var(--line); border-radius: 999px;
+            font-size: 0.85rem; color: var(--muted);
+        }
+        #apiStatus.up { color: var(--ok); border-color: var(--ok); }
+        #apiStatus.down { color: var(--error); border-color: var(--error); }
+
+        .steps { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+        @media (max-width: 820px) { .steps { grid-template-columns: 1fr; } }
+
+        section {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 24px;
+            min-width: 0;
+        }
+        section.locked { opacity: 0.55; }
+        section h2 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 600; }
+        section > p { margin: 0 0 18px; color: var(--muted); font-size: 0.95rem; }
+
+        label { display: block; font-size: 0.9rem; font-weight: 500; margin: 14px 0 6px; }
+        input[type="file"], input[type="number"] {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid var(--line); border-radius: 4px;
+            background: var(--bg); color: var(--ink);
+            font: inherit;
+        }
+        button {
+            margin-top: 16px; padding: 9px 18px;
+            border: 1px solid var(--accent); border-radius: 4px;
+            background: var(--accent); color: var(--accent-ink);
+            font: inherit; font-weight: 500; cursor: pointer;
+        }
+        button.secondary { background: transparent; color: var(--accent); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .message { margin: 14px 0 0; font-size: 0.92rem; min-height: 1.4em; }
+        .message.error { color: var(--error); }
+        .message.ok { color: var(--ok); }
+
+        .result { margin-top: 18px; }
+        .result[hidden] { display: none; }
+        .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; max-height: 340px; }
+        table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+        th, td { padding: 6px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+        th { position: sticky; top: 0; background: var(--surface); font-weight: 600; }
+        td { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+        tr:last-child td { border-bottom: none; }
+        .caption { font-size: 0.85rem; color: var(--muted); margin: 0 0 8px; }
+        .divider { margin: 18px 0 0; padding-top: 4px; border-top: 1px solid var(--line); }
+    </style>
+    <script src="{{ url_for('static', filename='script.js') }}" defer></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Metasyn API</h1>
+            <p> Synthetic data is data with (more or less) the same properties as an original dataset but without its privacy-sensitive information. By making synthetic data available instead of (or prior to) the actual dataset, scientists gain faster and easier access to confidential data.</p>
+            <span id="apiStatus">Checking API…</span>
+        </header>
+
+        <div class="steps">
+            <section id="fitPanel">
+                <h2>1. Fit a model</h2>
+                <p>Upload a CSV or TSV file to learn its structure.</p>
+
+                <form id="fitForm">
+                    <label for="dataFile">Data file</label>
+                    <input type="file" id="dataFile" accept=".csv,.tsv,.txt,text/csv">
+                    <button type="submit" id="fitButton">Fit model</button>
+                </form>
+                <p class="message" id="fitMessage" role="status"></p>
+
+                <div class="result" id="fitResult" hidden>
+                    <p class="caption" id="modelCaption"></p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Column</th><th>Type</th><th>Distribution</th></tr></thead>
+                            <tbody id="modelBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="secondary" id="downloadModel">Download model.json</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="synthPanel" class="locked">
+                <h2>2. Generate synthetic data</h2>
+                <p>Fit a model first, or load one you saved earlier.</p>
+
+                <label for="modelFile">Load a saved model (optional)</label>
+                <input type="file" id="modelFile" accept=".json,application/json">
+
+                <form id="synthForm">
+                    <label for="numRows">Number of rows</label>
+                    <input type="number" id="numRows" min="1" step="1" placeholder="Same as original" disabled>
+                    <button type="submit" id="synthButton" disabled>Generate data</button>
+                </form>
+                <p class="message" id="synthMessage" role="status"></p>
+
+                <div class="result" id="synthResult" hidden>
+                    <p class="caption" id="synthCaption"></p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead id="synthHead"></thead>
+                            <tbody id="synthBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="secondary" id="downloadCsv">Download synthetic.csv</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>
