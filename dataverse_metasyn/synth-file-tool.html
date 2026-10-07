@@ -66,6 +66,7 @@ section > p { margin: 0 0 18px; color: var(--muted); font-size: 0.95rem; }
 label { display: block; font-size: 0.9rem; font-weight: 500; margin: 14px 0 6px; }
 input[type="number"] {
   width: 100%; max-width: 14rem; padding: 8px 10px;
+  margin: 0 1rem;
   border: 1px solid var(--line); border-radius: 4px;
   background: var(--bg); color: var(--ink);
   font: inherit;
@@ -108,19 +109,20 @@ details li { overflow-wrap: anywhere; }
 <header>
 <h1>Synthetic Replicant File Tool</h1>
 <p>Generate a synthetic representation of a Dataverse file with Metasyn. A tabular file is turned into a model (GMF JSON); a GMF JSON file is turned into synthetic data.</p>
-<span id="apiStatus">Checking API…</span>
+<p>Note that this tool will never keep any data it receives and processes.</p>
+<span id="apiStatus">Checking Tool API…</span>
 </header>
 
 <div class="steps">
 <section id="filePanel">
-  <h2>1. Selected file</h2>
-  <p>The file chosen in Dataverse is sent to the Metasyn API.</p>
+  <h2>Selected file</h2>
+  <p id="fileDescription">The file chosen in Dataverse is sent to the Metasyn API.</p>
   <div id="controls"></div>
   <p class="message" id="status" role="status"></p>
 </section>
 
 <section id="resultPanel" hidden>
-  <h2>2. Result</h2>
+  <h2>Result</h2>
   <div class="result" id="results"></div>
 </section>
 </div>
@@ -163,12 +165,12 @@ details li { overflow-wrap: anywhere; }
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-                badge.textContent = 'API connected';
+                badge.textContent = 'Tool API connected';
                 badge.className = 'up';
             })
             .catch(error => {
-                console.warn('Metasyn API not reachable:', error);
-                badge.textContent = `API not reachable at ${API_URL}`;
+                console.warn('Metasyn ToolAPI not reachable:', error);
+                badge.textContent = `Tool API not reachable at ${API_URL}`;
                 badge.className = 'down';
             });
     }
@@ -215,7 +217,7 @@ details li { overflow-wrap: anywhere; }
             showStatus('Model fitted.', 'ok');
         })
         .catch(error => {
-            showError(`Fitting the model failed (is the Metasyn API running at ${API_URL}?)`, error);
+            showError(`Fitting the model failed (is the Metasyn Tool API running at ${API_URL}?)`, error);
         });
     }
 
@@ -250,7 +252,7 @@ details li { overflow-wrap: anywhere; }
             showStatus('Synthetic data generated.', 'ok');
         })
         .catch(error => {
-            showError(`Synthesizing data failed (is the Metasyn API running at ${API_URL}?)`, error);
+            showError(`Synthesizing data failed (is the Metasyn Tool API running at ${API_URL}?)`, error);
         });
     }
 
@@ -528,6 +530,9 @@ details li { overflow-wrap: anywhere; }
             // metadata has been retrieved and stored in g_fileMetadata if available
             // g_isGmf indicates whether the file is a GMF JSON file or not
             console.log('Metadata is ready. g_fileMetadata:', g_fileMetadata);
+            if (g_fileMetadata && g_fileMetadata.filename) {
+                $('fileDescription').textContent = `The file "${g_fileMetadata.filename}" chosen in Dataverse is sent to the Metasyn Tool API.`;
+            }
             if (g_fileMetadata) {
                 showStatus(`Ready: ${g_fileMetadata.filename || 'file'} (${g_fileMetadata.contentType}) will be handled as a ${g_isGmf ? 'GMF JSON' : 'tabular'} file.`, 'ok');
             } else {
