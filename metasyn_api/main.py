@@ -32,11 +32,22 @@ app = FastAPI(
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
     length = request.headers.get("content-length")
-    if length and length.isdigit() and int(length) > MAX_UPLOAD_BYTES:
-        return JSONResponse(
-            status_code=413,
-            content={"detail": f"The request is larger than the limit of {MAX_UPLOAD_BYTES} bytes."},
-        )
+    if request.method in {"POST", "PUT", "PATCH"}:
+        if length is None:
+            return JSONResponse(
+                status_code=411,
+                content={"detail": "Content-Length is required."},
+            )
+        if not length.isdigit():
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Content-Length must be a non-negative integer."},
+            )
+        if int(length) > MAX_UPLOAD_BYTES:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": f"The request is larger than the limit of {MAX_UPLOAD_BYTES} bytes."},
+            )
     return await call_next(request)
 
 # Wildcard origin is incompatible with credentials, so allow_credentials stays False.
