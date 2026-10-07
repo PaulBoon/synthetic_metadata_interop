@@ -8,7 +8,7 @@
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import pandas as pd
 from metasyn import MetaFrame
 import tempfile
@@ -51,8 +51,13 @@ app.add_middleware(
 # Request/Response models
 # -----------------------------
 class SynthesizeRequest(BaseModel):
-    model_json: dict   
-    num_rows: Optional[int] = None
+    model_json: dict
+    num_rows: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=MAX_NUM_ROWS,
+        description=f"Number of rows to generate, from 1 to {MAX_NUM_ROWS}. If omitted, uses the model row count, capped at {MAX_NUM_ROWS}.",
+    )
 
 class SynthesizeResponse(BaseModel):
     status: str
@@ -62,7 +67,12 @@ class SynthesizeResponse(BaseModel):
 # Endpoint: Fit model
 # -----------------------------
 @app.post("/fit-model/")
-async def fit_model(file: UploadFile = File(...)):
+async def fit_model(
+    file: UploadFile = File(
+        ...,
+        description=f"CSV/TSV file to fit. Maximum file and request size: {MAX_UPLOAD_BYTES} bytes.",
+    )
+):
     """
     Upload a CSV file, fit a metasyn model,
     and return the model as GMF (JSON).
@@ -151,10 +161,6 @@ async def synthesize_data(request: SynthesizeRequest = Body(...)):
                 num_rows = MAX_NUM_ROWS
         else:
             num_rows = int(num_rows)
-            if num_rows < 1:
-                raise HTTPException(status_code=400, detail="num_rows must be at least 1.")
-            if num_rows > MAX_NUM_ROWS:
-                raise HTTPException(status_code=400, detail=f"num_rows must be at most {MAX_NUM_ROWS}.")
 
         # The directory and everything in it is removed on exit, also when an error occurs
         with tempfile.TemporaryDirectory() as tmp_dir:

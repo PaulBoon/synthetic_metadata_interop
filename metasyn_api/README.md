@@ -154,7 +154,7 @@ jq -r '.synthetic_data_csv' synth_response.json > synthetic.csv
 
 
 ## AI use 
-- `main.py` was written with the help of Lumo, the Proton AI assistant. 
+- `main.py` was initially written with the help of Lumo, the Proton AI assistant. Later on, Copilot (with different models) was used to make adjustments. 
 
 ## To do:
 - turn instructions into bash script
