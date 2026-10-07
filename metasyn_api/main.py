@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import pandas as pd
 from metasyn import MetaFrame
+import asyncio
 import tempfile
 import os
 import csv
@@ -21,8 +22,13 @@ from fastapi.responses import JSONResponse
 from typing import Optional
 
 # Limits that protect against requests that exhaust memory or CPU; override with environment variables.
-MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", 200 * 1024 * 1024))
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", 100 * 1024 * 1024))
 MAX_NUM_ROWS = int(os.environ.get("MAX_NUM_ROWS", 100_000))
+# Per API worker process: how many fit/synthesize jobs run at once, and how long others wait for a slot.
+MAX_CONCURRENT_JOBS = max(1, int(os.environ.get("MAX_CONCURRENT_JOBS", 2)))
+JOB_WAIT_SECONDS = float(os.environ.get("JOB_WAIT_SECONDS", 30))
+
+_job_slots = asyncio.Semaphore(MAX_CONCURRENT_JOBS)
 
 app = FastAPI(
     title="Metasyn API",
@@ -78,6 +84,20 @@ class SynthesizeResponse(BaseModel):
 # -----------------------------
 # Blocking work, run in worker threads so the event loop keeps serving other requests
 # -----------------------------
+async def run_job(func, *args):
+    try:
+        await asyncio.wait_for(_job_slots.acquire(), timeout=JOB_WAIT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail="The server is busy with other requests; try again later.",
+            headers={"Retry-After": str(int(JOB_WAIT_SECONDS))},
+        )
+    try:
+        return await run_in_threadpool(func, *args)
+    finally:
+        _job_slots.release()
+
 def _fit_model(source, tmp_dir: str) -> dict:
     # Auto-detect the delimiter; Dataverse serves ingested tabular files as TSV.
     df = pd.read_csv(source, sep=None, engine="python")
@@ -144,7 +164,7 @@ async def fit_model(
             await file.seek(0)
 
             # Fit directly from the already-spooled upload
-            model_json_dict = await run_in_threadpool(_fit_model, file.file, tmp_dir)
+            model_json_dict = await run_job(_fit_model, file.file, tmp_dir)
 
         return {
             "status": "success",
@@ -201,7 +221,7 @@ async def synthesize_data(request: SynthesizeRequest = Body(...)):
         else:
             num_rows = int(num_rows)
 
-        csv_str = await run_in_threadpool(_synthesize_csv, model_json, num_rows)
+        csv_str = await run_job(_synthesize_csv, model_json, num_rows)
 
         return JSONResponse({"status": "success", "synthetic_data_csv": csv_str})
 

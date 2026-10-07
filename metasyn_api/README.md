@@ -92,6 +92,8 @@ The API rejects oversized requests. Both limits can be changed with environment 
 | `MAX_UPLOAD_BYTES` | `104857600` (100 MB) | Larger requests get a 413 response. |
 | `MAX_NUM_ROWS` | `100000` | A larger `num_rows` gets a 400 response; a row count inferred from the model is capped to this value. |
 | `API_WORKERS` | `2` | Number of API processes in the container (entrypoint only). Memory use grows with each worker. |
+| `MAX_CONCURRENT_JOBS` | `2` | Fit/synthesize jobs that run at once per API process, so up to `API_WORKERS` × this value in total. |
+| `JOB_WAIT_SECONDS` | `30` | How long an extra request waits for a free job slot before getting a 503 response with a `Retry-After` header. |
 
 Fitting and synthesizing run in worker threads, so a long request does not block the API's other requests. The UI uses threaded workers for the same reason.
 
