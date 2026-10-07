@@ -1,0 +1,22 @@
+[project]
+name = "metasyn-api"
+version = "0.1.0"
+description = "FastAPI wrapper for metasyn: fit a GMF model from a CSV and synthesize data from it"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "metasyn==2.0.0",
+    "pandas",
+    "python-multipart",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+frontend = [
+    "flask",
+    "requests",
+]
+
+[tool.uv]
+package = false

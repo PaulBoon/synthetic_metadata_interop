@@ -6,33 +6,41 @@ This folder contains the code for a fastAPI wrapper for metasyn. It exposes two 
 
 It does not include any authentication or security features, and is intended for local use and as a starting point for further development.
 
+## Quick start
+
+With [uv](https://docs.astral.sh/uv/) installed:
+```bash
+uv sync --extra frontend          # once: creates .venv with the locked dependencies
+uv run uvicorn main:app --reload  # API on http://127.0.0.1:8000
+uv run python frontend/app_flask.py  # optional UI on http://127.0.0.1:5000
+```
+
 ## File description 
 - `main.py` contains the API app 
-- `input_data.csv` contains a file from an open dataset in the SSH Data Station that is used as a testing example
-- `synthetic.csv` contains the resulting synthetic version of the input data
+- `pyproject.toml` and `uv.lock` define the dependencies (`frontend` extra: Flask UI); `requirements.txt` is generated from them for pip users
+- `.python-version` pins the Python version used by uv
+- `data/input_data.csv` contains a file from an open dataset in the SSH Data Station that is used as a testing example
+- `data/synthetic.csv` contains the resulting synthetic version of the input data
 
 ## Instructions 
 
 ### Install packages
-Optional: Create a virtual environment, for instance with uv: 
+Install the locked dependencies with uv; this creates the `.venv` virtual environment and downloads the pinned Python version if needed. There is no need to activate the environment when using `uv run`. 
 ```bash
-uv venv .env
+uv sync --extra frontend
 ```
-Optional: Activate the virtual environment: 
-```bash
-source .env/bin/activate
-```
+Without the UI, leave out `--extra frontend`. 
 
-Install the required Python packages: 
-```
-uv pip install -r requirements.txt
-```
+The `metasyn` version is pinned to `2.0.0` because newer versions produce a different GMF structure (the tool and UI expect GMF 1.1). 
+
+Without uv you can use pip: `pip install -r requirements.txt`. 
+
 ### Start the API
 
 You can start the API with the following command: 
 
 ```bash
-uvicorn main:app --reload
+uv run uvicorn main:app --reload
 ```
 
 You can now see the documentation here and test the endpoints: 
@@ -46,8 +54,8 @@ http://127.0.0.1:8000/docs
 ### Start the user interface 
 Run the following command to start the UI: 
 
-```python
-python frontend/app_flask.py
+```bash
+uv run python frontend/app_flask.py
 ```
 
 It will run on `http://127.0.0.1:5000`
@@ -76,7 +84,7 @@ To save the model and synthetic data files to your disk manually without the UI,
 
 Fit model (upload CSV, save response):
 ``` bash
-curl -s -F "file=@input_data.csv" http://127.0.0.1:8000/fit-model/ -o fit_response.json
+curl -s -F "file=@data/input_data.csv" http://127.0.0.1:8000/fit-model/ -o fit_response.json
 ```
 
 Extract the model into a file:
@@ -106,5 +114,4 @@ jq -r '.synthetic_data_csv' synth_response.json > synthetic.csv
 - `main.py` was written with the help of Lumo, the Proton AI assistant. 
 
 ## To do:
-- add package requirements 
 - turn instructions into bash script
