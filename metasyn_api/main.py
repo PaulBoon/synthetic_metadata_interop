@@ -6,7 +6,7 @@
 # The code does not include any authentication or security features, and is intended for local use or as a starting point for further development.
 # After Alessandra Polimeno, I (Paul Boon) made extensive and shameless use of Copilot to assist in development.
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -35,27 +35,52 @@ app = FastAPI(
     description="API for generating synthetic data with metasyn"
 )
 
-# Defined before the CORS middleware so that CORS stays outermost and a 413 still gets CORS headers.
-@app.middleware("http")
-async def limit_request_size(request: Request, call_next):
-    length = request.headers.get("content-length")
-    if request.method in {"POST", "PUT", "PATCH"}:
-        if length is None:
-            return JSONResponse(
-                status_code=411,
-                content={"detail": "Content-Length is required."},
-            )
-        if not length.isdigit():
-            return JSONResponse(
-                status_code=400,
-                content={"detail": "Content-Length must be a non-negative integer."},
-            )
-        if int(length) > MAX_UPLOAD_BYTES:
-            return JSONResponse(
-                status_code=413,
-                content={"detail": f"The request is larger than the limit of {MAX_UPLOAD_BYTES} bytes."},
-            )
-    return await call_next(request)
+class LimitRequestSize:
+    """Rejects requests over MAX_UPLOAD_BYTES: by Content-Length when it is sent, otherwise while the body is read."""
+
+    def __init__(self, app, max_bytes: int):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        too_large = HTTPException(
+            status_code=413,
+            detail=f"The request is larger than the limit of {self.max_bytes} bytes.",
+        )
+        length = next((v for k, v in scope["headers"] if k == b"content-length"), None)
+        if length is not None:
+            if not length.isdigit():
+                response = JSONResponse(
+                    status_code=400,
+                    content={"detail": "Content-Length must be a non-negative integer."},
+                )
+                await response(scope, receive, send)
+                return
+            if int(length) > self.max_bytes:
+                response = JSONResponse(status_code=413, content={"detail": too_large.detail})
+                await response(scope, receive, send)
+                return
+
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                # Raised while the route reads the body, so it is rendered as a normal 413 response.
+                if received > self.max_bytes:
+                    raise too_large
+            return message
+
+        await self.app(scope, limited_receive, send)
+
+# Added before the CORS middleware so that CORS stays outermost and a 413 still gets CORS headers.
+app.add_middleware(LimitRequestSize, max_bytes=MAX_UPLOAD_BYTES)
 
 # Wildcard origin is incompatible with credentials, so allow_credentials stays False.
 app.add_middleware(

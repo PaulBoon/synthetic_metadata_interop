@@ -89,7 +89,7 @@ The API rejects oversized requests. Both limits can be changed with environment 
 
 | Variable | Default | Effect |
 |---|---|---|
-| `MAX_UPLOAD_BYTES` | `104857600` (100 MB) | Larger requests get a 413 response. |
+| `MAX_UPLOAD_BYTES` | `104857600` (100 MB) | Larger requests get a 413 response, checked by `Content-Length` when it is sent and otherwise while the body is received. |
 | `MAX_NUM_ROWS` | `100000` | A larger `num_rows` gets a 400 response; a row count inferred from the model is capped to this value. |
 | `API_WORKERS` | `2` | Number of API processes in the container (entrypoint only). Memory use grows with each worker. |
 | `MAX_CONCURRENT_JOBS` | `2` | Fit/synthesize jobs that run at once per API process, so up to `API_WORKERS` × this value in total. |
