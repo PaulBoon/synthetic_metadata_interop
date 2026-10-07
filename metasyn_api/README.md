@@ -52,6 +52,25 @@ python frontend/app_flask.py
 
 It will run on `http://127.0.0.1:5000`
 
+
+#### Interface example usage
+
+1. Initial page will show the option to upload a tabular file and generate a GMF
+
+![Initial page](Screenshot-ui-initial-page.png)
+
+2. After the model is fitted you can download it 
+
+![Model fitted page](Screenshot-ui-model-fitted-page.png)
+
+3. And, if you scroll, down, you can have synthetic data generated using that model. Or, just upload another GMF to use that. 
+
+4. When the data is generated it will show the first 10 lines and a button  to download the whole file. 
+
+![Data generated page](Screenshot-ui-data-generated-page.png)
+
+
+
 ### Manually use the API endpoints
 To save the model and synthetic data files to your disk manually without the UI, run the following commands: 
 
