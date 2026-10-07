@@ -178,7 +178,7 @@ async def fit_model(
         # The directory and everything in it is removed on exit, also when an error occurs
         with tempfile.TemporaryDirectory() as tmp_dir:
             size = 0
-             # Backstop for requests without a Content-Length header
+            # Backstop for requests without a Content-Length header
             while chunk := await file.read(1024 * 1024):
                 size += len(chunk)
                 if size > MAX_UPLOAD_BYTES:
