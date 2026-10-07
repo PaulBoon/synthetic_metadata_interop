@@ -7,6 +7,7 @@
 # After Alessandra Polimeno, I (Paul Boon) made extensive and shameless use of Copilot to assist in development.
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import pandas as pd
@@ -75,6 +76,45 @@ class SynthesizeResponse(BaseModel):
     synthetic_data_csv: str
 
 # -----------------------------
+# Blocking work, run in worker threads so the event loop keeps serving other requests
+# -----------------------------
+def _fit_model(source, tmp_dir: str) -> dict:
+    # Auto-detect the delimiter; Dataverse serves ingested tabular files as TSV.
+    df = pd.read_csv(source, sep=None, engine="python")
+    model = MetaFrame.fit_dataframe(df)
+
+    # metasyn expects file-based save/load
+    json_path = os.path.join(tmp_dir, "model.json")
+    model.save_json(json_path)
+    with open(json_path, "r") as f:
+        return json.load(f)
+
+def _synthesize_csv(model_json: dict, num_rows: int) -> str:
+    # The directory and everything in it is removed on exit, also when an error occurs
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # Write model JSON to a file because metasyn expects a file path
+        json_path = os.path.join(tmp_dir, "model.json")
+        with open(json_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(model_json))
+
+        try:
+            model = MetaFrame.load_json(json_path)
+        except Exception:
+            logging.exception("Could not load model_json in synthesize_data")
+            raise HTTPException(status_code=400, detail="model_json is not a valid metasyn (GMF) model.")
+        synthetic_df = model.synthesize(num_rows)
+
+        # Ensure we produce a CSV string regardless of the object API
+        if hasattr(synthetic_df, "to_csv"):
+            return synthetic_df.to_csv(index=False)
+        if hasattr(synthetic_df, "write_csv"):
+            out_path = os.path.join(tmp_dir, "synthetic.csv")
+            synthetic_df.write_csv(out_path)
+            with open(out_path, "r", encoding="utf-8") as f:
+                return f.read()
+        return str(synthetic_df)
+
+# -----------------------------
 # Endpoint: Fit model
 # -----------------------------
 @app.post("/fit-model/")
@@ -103,18 +143,8 @@ async def fit_model(
                     )
             await file.seek(0)
 
-            # Load data and fit model directly from the already-spooled upload
-            # Auto-detect the delimiter; Dataverse serves ingested tabular files as TSV.
-            df = pd.read_csv(file.file, sep=None, engine="python")
-            model = MetaFrame.fit_dataframe(df)
-
-            # metasyn expects file-based save/load
-            json_path = os.path.join(tmp_dir, "model.json")
-            model.save_json(json_path)
-
-            # Read JSON back into a Python dict so it can be returned in the response
-            with open(json_path, "r") as f:
-                model_json_dict = json.load(f)
+            # Fit directly from the already-spooled upload
+            model_json_dict = await run_in_threadpool(_fit_model, file.file, tmp_dir)
 
         return {
             "status": "success",
@@ -171,31 +201,7 @@ async def synthesize_data(request: SynthesizeRequest = Body(...)):
         else:
             num_rows = int(num_rows)
 
-        # The directory and everything in it is removed on exit, also when an error occurs
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            # Write model JSON to a file because metasyn expects a file path
-            json_path = os.path.join(tmp_dir, "model.json")
-            with open(json_path, "w", encoding="utf-8") as f:
-                f.write(json.dumps(model_json))
-
-            # Load the model and synthesize
-            try:
-                model = MetaFrame.load_json(json_path)
-            except Exception:
-                logging.exception("Could not load model_json in synthesize_data")
-                raise HTTPException(status_code=400, detail="model_json is not a valid metasyn (GMF) model.")
-            synthetic_df = model.synthesize(num_rows)
-
-            # Ensure we produce a CSV string regardless of the object API
-            if hasattr(synthetic_df, "to_csv"):
-                csv_str = synthetic_df.to_csv(index=False)
-            elif hasattr(synthetic_df, "write_csv"):
-                out_path = os.path.join(tmp_dir, "synthetic.csv")
-                synthetic_df.write_csv(out_path)
-                with open(out_path, "r", encoding="utf-8") as f:
-                    csv_str = f.read()
-            else:
-                csv_str = str(synthetic_df)
+        csv_str = await run_in_threadpool(_synthesize_csv, model_json, num_rows)
 
         return JSONResponse({"status": "success", "synthetic_data_csv": csv_str})
 

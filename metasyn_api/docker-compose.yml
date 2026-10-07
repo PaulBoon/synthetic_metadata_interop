@@ -9,8 +9,9 @@ services:
       - "127.0.0.1:8000:8000"   # Metasyn API
       - "127.0.0.1:5000:5000"   # web UI
     environment:
-      MAX_UPLOAD_BYTES: "209715200"
+      MAX_UPLOAD_BYTES: "104857600"
       MAX_NUM_ROWS: "100000"
+      API_WORKERS: "2"
     read_only: true
     tmpfs:
       - /tmp:size=256m,mode=1777

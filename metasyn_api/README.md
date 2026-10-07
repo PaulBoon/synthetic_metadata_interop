@@ -91,6 +91,9 @@ The API rejects oversized requests. Both limits can be changed with environment 
 |---|---|---|
 | `MAX_UPLOAD_BYTES` | `209715200` (200 MB) | Larger requests get a 413 response. |
 | `MAX_NUM_ROWS` | `100000` | A larger `num_rows` gets a 400 response; a row count inferred from the model is capped to this value. |
+| `API_WORKERS` | `2` | Number of API processes in the container (entrypoint only). Memory use grows with each worker. |
+
+Fitting and synthesizing run in worker threads, so a long request does not block the API's other requests. The UI uses threaded workers for the same reason.
 
 
 
