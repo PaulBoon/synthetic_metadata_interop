@@ -92,22 +92,20 @@ async def fit_model(
     try:
         # The directory and everything in it is removed on exit, also when an error occurs
         with tempfile.TemporaryDirectory() as tmp_dir:
-            csv_path = os.path.join(tmp_dir, "input.csv")
             size = 0
-            with open(csv_path, "wb") as f:
-                # Backstop for requests without a Content-Length header
-                while chunk := await file.read(1024 * 1024):
-                    size += len(chunk)
-                    if size > MAX_UPLOAD_BYTES:
-                        raise HTTPException(
-                            status_code=413,
-                            detail=f"The file is larger than the limit of {MAX_UPLOAD_BYTES} bytes.",
-                        )
-                    f.write(chunk)
+             # Backstop for requests without a Content-Length header
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"The file is larger than the limit of {MAX_UPLOAD_BYTES} bytes.",
+                    )
+            await file.seek(0)
 
-            # Load data and fit model
+            # Load data and fit model directly from the already-spooled upload
             # Auto-detect the delimiter; Dataverse serves ingested tabular files as TSV.
-            df = pd.read_csv(csv_path, sep=None, engine="python")
+            df = pd.read_csv(file.file, sep=None, engine="python")
             model = MetaFrame.fit_dataframe(df)
 
             # metasyn expects file-based save/load
