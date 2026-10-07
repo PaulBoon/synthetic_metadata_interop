@@ -15,7 +15,14 @@ uv run uvicorn main:app --reload  # API on http://127.0.0.1:8000
 uv run python frontend/app_flask.py  # optional UI on http://127.0.0.1:5000
 ```
 
+Or with Docker, which runs the API and the UI in one container:
+```bash
+docker compose up -d --build
+```
+
 ## File description 
+- `Dockerfile`, `docker-entrypoint.sh` and `.dockerignore` build the container that runs both the API (port 8000) and the Flask UI (port 5000)
+- `docker-compose.yml` runs that container with hardened settings
 - `main.py` contains the API app 
 - `pyproject.toml` and `uv.lock` define the dependencies (`frontend` extra: Flask UI); `requirements.txt` is generated from them for pip users
 - `.python-version` pins the Python version used by uv
@@ -48,6 +55,42 @@ You can now see the documentation here and test the endpoints:
 ```
 http://127.0.0.1:8000/docs
 ```
+
+### Run with Docker
+
+The image contains the API (uvicorn, port 8000) and the UI (gunicorn, port 5000); the UI forwards its requests to the API inside the container. 
+
+```bash
+docker compose up -d --build   # start
+docker compose down            # stop
+```
+
+The compose file ([docker-compose.yml](docker-compose.yml)) applies these settings:
+- ports are published on `127.0.0.1` only, so the service is not reachable from other machines
+- read-only root filesystem, with small writable tmpfs mounts for `/tmp` and the home directory
+- all Linux capabilities dropped and `no-new-privileges` enabled
+- limits on processes (`pids_limit`), memory (`mem_limit`) and CPUs (`cpus`)
+- the request limits below as environment variables
+
+Without compose, a basic run (without the other settings above) is:
+```bash
+docker build -t metasyn-api .
+docker run --rm -p 127.0.0.1:8000:8000 -p 127.0.0.1:5000:5000 metasyn-api
+```
+
+- UI: `http://127.0.0.1:5000`
+- API docs: `http://127.0.0.1:8000/docs`
+
+Port 8000 needs to be published for tools that call the API directly from the browser, such as the Dataverse tool in `../dataverse_metasyn` (it expects `http://127.0.0.1:8000`). The container runs as a non-root user and, like the API itself, has no authentication. 
+
+#### Request limits
+
+The API rejects oversized requests. Both limits can be changed with environment variables (in compose under `environment`, with `docker run` use `-e`):
+
+| Variable | Default | Effect |
+|---|---|---|
+| `MAX_UPLOAD_BYTES` | `209715200` (200 MB) | Larger requests get a 413 response. |
+| `MAX_NUM_ROWS` | `100000` | A larger `num_rows` gets a 400 response; a row count inferred from the model is capped to this value. |
 
 
 

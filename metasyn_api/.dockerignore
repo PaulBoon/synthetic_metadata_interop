@@ -1,0 +1,13 @@
+.venv/
+.env/
+__pycache__/
+**/__pycache__/
+data/
+*.png
+*.csv
+fit_response.json
+model.json
+payload.json
+synth_response.json
+Dockerfile
+.dockerignore

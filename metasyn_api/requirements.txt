@@ -28,6 +28,8 @@ fastapi==0.142.2
     # via metasyn-api
 flask==3.1.3
     # via metasyn-api
+gunicorn==26.2.0
+    # via metasyn-api
 h11==0.16.0
     # via uvicorn
 idna==3.20

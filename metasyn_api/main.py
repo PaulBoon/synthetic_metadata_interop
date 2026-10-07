@@ -4,24 +4,40 @@
 # - /fit-model/ : accepts a CSV file, fits a metasyn model, and returns the model as GMF (JSON)
 # - /synthesize/ : accepts a fitted model (as JSON) and generates synthetic data
 # The code does not include any authentication or security features, and is intended for local use or as a starting point for further development.
+# After Alessandra Polimeno, I (Paul Boon) made extensive and shameless use of Copilot to assist in development.
 
-
-from fastapi import FastAPI, UploadFile, File, HTTPException, Body
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pandas as pd
 from metasyn import MetaFrame
 import tempfile
 import os
+import csv
 import json
 import logging
 from fastapi.responses import JSONResponse
 from typing import Optional
 
+# Limits that protect against requests that exhaust memory or CPU; override with environment variables.
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", 200 * 1024 * 1024))
+MAX_NUM_ROWS = int(os.environ.get("MAX_NUM_ROWS", 100_000))
+
 app = FastAPI(
     title="Metasyn API",
     description="API for generating synthetic data with metasyn"
 )
+
+# Defined before the CORS middleware so that CORS stays outermost and a 413 still gets CORS headers.
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length and length.isdigit() and int(length) > MAX_UPLOAD_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={"detail": f"The request is larger than the limit of {MAX_UPLOAD_BYTES} bytes."},
+        )
+    return await call_next(request)
 
 # Wildcard origin is incompatible with credentials, so allow_credentials stays False.
 app.add_middleware(
@@ -53,43 +69,47 @@ async def fit_model(file: UploadFile = File(...)):
     """
 
     try:
-        # Save uploaded CSV to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
-            tmp.write(await file.read())
-            tmp_path = tmp.name
+        # The directory and everything in it is removed on exit, also when an error occurs
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = os.path.join(tmp_dir, "input.csv")
+            size = 0
+            with open(csv_path, "wb") as f:
+                # Backstop for requests without a Content-Length header
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_UPLOAD_BYTES:
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"The file is larger than the limit of {MAX_UPLOAD_BYTES} bytes.",
+                        )
+                    f.write(chunk)
 
-        # Load data and fit model
-        # Auto-detect the delimiter; Dataverse serves ingested tabular files as TSV.
-        df = pd.read_csv(tmp_path, sep=None, engine="python")
-        model = MetaFrame.fit_dataframe(df)
+            # Load data and fit model
+            # Auto-detect the delimiter; Dataverse serves ingested tabular files as TSV.
+            df = pd.read_csv(csv_path, sep=None, engine="python")
+            model = MetaFrame.fit_dataframe(df)
 
-        # Save model to a temporary JSON file (metasyn expects file-based save/load)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_json:
-            json_path = tmp_json.name
-        model.save_json(json_path)
+            # metasyn expects file-based save/load
+            json_path = os.path.join(tmp_dir, "model.json")
+            model.save_json(json_path)
 
-        # Read JSON back into a Python dict so it can be returned in the response
-        with open(json_path, "r") as f:
-            model_json_dict = json.load(f)
-
-        # Cleanup temp files
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
-        try:
-            os.remove(json_path)
-        except Exception:
-            pass
+            # Read JSON back into a Python dict so it can be returned in the response
+            with open(json_path, "r") as f:
+                model_json_dict = json.load(f)
 
         return {
             "status": "success",
             "model_json": model_json_dict
         }
 
-    except Exception as e:
+    except HTTPException:
+        raise
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, csv.Error, UnicodeDecodeError):
+        logging.exception("Could not read the uploaded file in fit_model")
+        raise HTTPException(status_code=400, detail="The file could not be read as a CSV/TSV table.")
+    except Exception:
         logging.exception("Error in fit_model")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal error while fitting the model.")
 
 
 # -----------------------------
@@ -126,48 +146,49 @@ async def synthesize_data(request: SynthesizeRequest = Body(...)):
             else:
                 logging.info("n_rows not found in model JSON; defaulting to 109")
                 num_rows = 100
+            if num_rows > MAX_NUM_ROWS:
+                logging.info(f"Limiting inferred num_rows={num_rows} to {MAX_NUM_ROWS}")
+                num_rows = MAX_NUM_ROWS
         else:
             num_rows = int(num_rows)
+            if num_rows < 1:
+                raise HTTPException(status_code=400, detail="num_rows must be at least 1.")
+            if num_rows > MAX_NUM_ROWS:
+                raise HTTPException(status_code=400, detail=f"num_rows must be at most {MAX_NUM_ROWS}.")
 
-        # Write model JSON to a temp file because metasyn expects a file path
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_json:
-            json_path = tmp_json.name
-            tmp_json.write(json.dumps(model_json).encode("utf-8"))
+        # The directory and everything in it is removed on exit, also when an error occurs
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Write model JSON to a file because metasyn expects a file path
+            json_path = os.path.join(tmp_dir, "model.json")
+            with open(json_path, "w", encoding="utf-8") as f:
+                f.write(json.dumps(model_json))
 
-        # Load the model and synthesize
-        model = MetaFrame.load_json(json_path)
-        synthetic_df = model.synthesize(num_rows)
-
-        # Ensure we produce a CSV string regardless of the object API
-        if hasattr(synthetic_df, "to_csv"):
-            csv_str = synthetic_df.to_csv(index=False)
-        elif hasattr(synthetic_df, "write_csv"):
-            # write to temp file then read
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_out:
-                out_path = tmp_out.name
-            synthetic_df.write_csv(out_path)
-            with open(out_path, "r", encoding="utf-8") as f:
-                csv_str = f.read()
+            # Load the model and synthesize
             try:
-                os.remove(out_path)
+                model = MetaFrame.load_json(json_path)
             except Exception:
-                pass
-        else:
-            csv_str = str(synthetic_df)
+                logging.exception("Could not load model_json in synthesize_data")
+                raise HTTPException(status_code=400, detail="model_json is not a valid metasyn (GMF) model.")
+            synthetic_df = model.synthesize(num_rows)
 
-        # Cleanup
-        try:
-            os.remove(json_path)
-        except Exception:
-            pass
+            # Ensure we produce a CSV string regardless of the object API
+            if hasattr(synthetic_df, "to_csv"):
+                csv_str = synthetic_df.to_csv(index=False)
+            elif hasattr(synthetic_df, "write_csv"):
+                out_path = os.path.join(tmp_dir, "synthetic.csv")
+                synthetic_df.write_csv(out_path)
+                with open(out_path, "r", encoding="utf-8") as f:
+                    csv_str = f.read()
+            else:
+                csv_str = str(synthetic_df)
 
         return JSONResponse({"status": "success", "synthetic_data_csv": csv_str})
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception("Error in synthesize_data")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal error while generating synthetic data.")
 
 # -----------------------------
 # Root endpoint
