@@ -530,6 +530,10 @@ details li { overflow-wrap: anywhere; }
             // metadata has been retrieved and stored in g_fileMetadata if available
             // g_isGmf indicates whether the file is a GMF JSON file or not
             console.log('Metadata is ready. g_fileMetadata:', g_fileMetadata);
+            
+            // Note that we can check the file size and determine if uploading is possible 
+            // given the max upload size, if we knew it... 
+
             if (g_fileMetadata && g_fileMetadata.filename) {
                 $('fileDescription').textContent = `The file "${g_fileMetadata.filename}" chosen in Dataverse is sent to the Metasyn Tool API.`;
             }

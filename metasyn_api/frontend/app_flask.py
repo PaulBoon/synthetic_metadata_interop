@@ -12,7 +12,7 @@ API_URL = "http://127.0.0.1:8000"   # where `uvicorn main:app` is running
 TIMEOUT = 300                        # seconds; fitting large files can take a while
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_BYTES", 200 * 1024 * 1024))
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_BYTES", 100 * 1024 * 1024))
 
 
 def forward(response):
