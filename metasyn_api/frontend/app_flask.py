@@ -3,6 +3,8 @@
 # The browser only talks to Flask; Flask forwards requests to FastAPI.
 # This avoids CORS issues and keeps the API address in one place.
 
+import os
+
 import requests
 from flask import Flask, render_template, request, jsonify
 
@@ -10,7 +12,7 @@ API_URL = "http://127.0.0.1:8000"   # where `uvicorn main:app` is running
 TIMEOUT = 300                        # seconds; fitting large files can take a while
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200 MB upload limit
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_BYTES", 100 * 1024 * 1024))
 
 
 def forward(response):

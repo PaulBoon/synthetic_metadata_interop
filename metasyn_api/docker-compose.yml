@@ -1,0 +1,28 @@
+services:
+  metasyn:
+    build: .
+    image: metasyn-api
+    container_name: metasyn
+    restart: unless-stopped
+    ports:
+      # Bound to localhost only; the service has no authentication.
+      - "127.0.0.1:8000:8000"   # Metasyn API
+      - "127.0.0.1:5000:5000"   # web UI
+    environment:
+      MAX_UPLOAD_BYTES: "104857600"
+      MAX_NUM_ROWS: "100000"
+      API_WORKERS: "2"
+      MAX_CONCURRENT_JOBS: "2"
+      JOB_WAIT_SECONDS: "30"
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      # Gunicorn writes to the home directory of the container user.
+      - /home/metasyn:size=16m,uid=1000,gid=1000
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 200
+    mem_limit: 2g
+    cpus: 2
