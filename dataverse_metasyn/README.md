@@ -36,7 +36,9 @@ For the JSON (GMF) files
 curl -X POST -H 'Content-type: application/json' http://localhost:8080/api/admin/externalTools --upload-file /vagrant/shared/synthFileToolGmf.json
 ```
 
-3. Start the API
+__NOTE__: You can delete 'wrong' configs with `curl -X DELETE http://localhost:8080/api/admin/externalTools/<id>`, where `<id>` is the number for the config that you can discover with `curl http://localhost:8080/api/admin/externalTools`. 
+
+4. Start the API
 Read that documentation, it will explain how to get it running. 
 [metasyn_api](../metasyn_api/README.md)
 
