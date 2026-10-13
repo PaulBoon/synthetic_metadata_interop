@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Synthetic Replicant File Tool</title>
+<title>Synthetic Replicant File Tool (Demo)</title>
 <style>
 :root {
   --bg: #eef1f4;
@@ -107,7 +107,7 @@ details li { overflow-wrap: anywhere; }
 <body>
 <div class="container">
 <header>
-<h1>Synthetic Replicant File Tool</h1>
+<h1>Synthetic Replicant File Tool (Demo)</h1>
 <p>Generate a synthetic representation of a Dataverse file with Metasyn. A tabular file is turned into a model (GMF JSON); a GMF JSON file is turned into synthetic data.</p>
 <p>Note that this tool will never keep any data it receives and processes.</p>
 <span id="apiStatus">Checking Tool API…</span>
@@ -137,13 +137,14 @@ details li { overflow-wrap: anywhere; }
     var g_fileMetadata;
     var g_fileContent;
     var g_isGmf = false;
-
+    var g_isDraft = false;
+    var g_queryParams;
+    
     const $ = (id) => document.getElementById(id);
 
     //--- Status and error reporting: logs to the console and shows the message on the page ---
 
-    function setMessage(message, kind) {
-        const statusEl = $('status');
+    function setMessage(message, kind, statusEl = $('status')) {
         statusEl.textContent = message;
         statusEl.className = 'message' + (kind ? ' ' + kind : '');
     }
@@ -353,6 +354,38 @@ details li { overflow-wrap: anywhere; }
         parent.appendChild(actions);
     }
 
+    function addUploadToDataverseButton(parent, label, fileContent, addDataFileUrl) {
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary';
+        button.textContent = label;
+        const uploadStatus = document.createElement('p');
+        uploadStatus.className = 'message';
+        uploadStatus.setAttribute('role', 'status');
+        button.onclick = () => {
+            if (!addDataFileUrl) {
+                console.error('Cannot upload: no addDataFile URL');
+                setMessage('Cannot upload: Dataverse did not provide an addDataFile URL', 'error', uploadStatus);
+                return;
+            }
+            // not runAction: that would clear the results this button lives in
+            button.disabled = true;
+            setMessage('Uploading the GMF file to Dataverse...', '', uploadStatus);
+            fetchAddDataFileUrl(addDataFileUrl, fileContent)
+                .then(() => setMessage('GMF file uploaded to Dataverse.', 'ok', uploadStatus))
+                .catch(error => {
+                    console.error('Uploading to Dataverse failed', error);
+                    setMessage(`Uploading to Dataverse failed: ${error.message || error}`, 'error', uploadStatus);
+                })
+                .finally(() => { button.disabled = false; });
+        };
+        actions.appendChild(button);
+        parent.appendChild(actions);
+        parent.appendChild(uploadStatus);
+    }
+
     function displayModelJson(model) {
         const outputDiv = $('results');
         const vars = Array.isArray(model.vars) ? model.vars : [];
@@ -370,6 +403,12 @@ details li { overflow-wrap: anywhere; }
         modelPre.textContent = JSON.stringify(model, null, 2);
         outputDiv.appendChild(modelPre);
         addDownloadButton(outputDiv, 'Download model.json', 'model.json', JSON.stringify(model, null, 2), 'application/json');
+        if (g_isDraft) {
+            console.log('Draft detected, enabling upload to Dataverse.');
+            addUploadToDataverseButton(outputDiv, 'Upload to Dataverse', JSON.stringify(model, null, 2), g_queryParams.addDataFileUrl);
+        } else {
+            console.log('Not a draft, skipping upload to Dataverse.');
+        }
         $('resultPanel').hidden = false;
     }
 
@@ -486,10 +525,51 @@ details li { overflow-wrap: anywhere; }
             });
     }
 
+    /**
+     * curl -H "X-Dataverse-key:$API_TOKEN" -X POST -F "file=@$FILENAME" -F 'jsonData={"description":"My description.","directoryLabel":"data/subdir1","categories":["Data"], "restrict":"false", "tabIngest":"false"}' "$SERVER_URL/api/datasets/:persistentId/add?persistentId=$PERSISTENT_ID"
+     * multipart form data
+     * 
+     */
+    function fetchAddDataFileUrl(addDataFileUrl, fileContent) {
+
+        // get original filename
+        const originalFilename = g_fileMetadata && g_fileMetadata.filename ? g_fileMetadata.filename : 'file';
+        // strip extension if present
+        const dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex > 0) {
+            originalFilename = originalFilename.substring(0, dotIndex);
+        }
+        const filename = originalFilename + '_gmf.json';
+        // Note that we don't check if the file is already present etc.
+
+        // try to use the same directory label as the original file
+        const directoryLabel = g_fileMetadata && g_fileMetadata.directoryLabel ? g_fileMetadata.directoryLabel : 'metasyn';
+        const newFileMetaData = {
+            "description":"Generative Metadata Format (GMF)",
+            "directoryLabel": directoryLabel,
+            //"categories":["Data"], // Maybe have a specific category for 'metadata' files
+            "restrict":"false", 
+            "tabIngest":"false"
+        }
+        const newFileContent = new Blob([fileContent], { type: 'application/json' });
+        const formData = new FormData();
+        formData.append('file', newFileContent, filename);
+        formData.append('jsonData', JSON.stringify(newFileMetaData));
+
+        return fetch(addDataFileUrl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(checkResponse)
+        .then(response => response.json());
+    }
+
     // This function contains the logic to continue the process
     // using the query parameters.
     function continueWithParams(queryParams) {
         console.log('Continuing with parameters:', queryParams);
+        g_queryParams = queryParams;
+        g_isDraft = queryParams.datasetversion === ':draft';
 
         displayQueryParams(queryParams);
 
@@ -633,8 +713,11 @@ details li { overflow-wrap: anywhere; }
                         case 'getDatasetVersionMetadata':
                             queryParams.versionUrl = url.signedUrl;
                             break;
-                        case 'retrieveDataFile': // Only got this one configured!
+                        case 'retrieveDataFile':
                             queryParams.fileUrl = url.signedUrl;
+                            break;
+                        case 'addDataFile':
+                            queryParams.addDataFileUrl = url.signedUrl;
                             break;
                         default:
                     }
