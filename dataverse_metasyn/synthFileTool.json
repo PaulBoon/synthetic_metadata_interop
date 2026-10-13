@@ -4,11 +4,10 @@
   "toolName": "SynthFileTool",
   "scope": "file",
   "types": [
-    "explore"
+    "explore","configure"
   ],
   "toolUrl": "https://dev.ssh.datastations.nl/custom/synth-file-tool.html",
   "contentType": "text/tab-separated-values",
-  "httpMethod":"GET",
   "toolParameters": {
     "queryParameters": [
       {"fileid": "{fileId}"},
@@ -23,13 +22,19 @@
       "name":"retrieveDataFile",
       "httpMethod":"GET",
       "urlTemplate":"/api/v1/access/datafile/{fileId}?gbrecs=true",
-      "timeOut":270
+      "timeOut":3600
     },
     {
       "name": "getDatasetVersionMetadata",
       "httpMethod": "GET",
       "urlTemplate": "/api/v1/datasets/{datasetId}/versions/{datasetVersion}",
       "timeOut": 3600
+    },
+    {
+      "name":"addDataFile",
+      "httpMethod":"POST",
+      "urlTemplate":"/api/v1/datasets/{datasetId}/add",
+      "timeOut":3600
     }
   ]
 }

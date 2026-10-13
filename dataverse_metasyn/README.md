@@ -36,7 +36,9 @@ For the JSON (GMF) files
 curl -X POST -H 'Content-type: application/json' http://localhost:8080/api/admin/externalTools --upload-file /vagrant/shared/synthFileToolGmf.json
 ```
 
-3. Start the API
+__NOTE__: You can delete 'wrong' configs with `curl -X DELETE http://localhost:8080/api/admin/externalTools/<id>`, where `<id>` is the number for the config that you can discover with `curl http://localhost:8080/api/admin/externalTools`. 
+
+4. Start the API
 Read that documentation, it will explain how to get it running. 
 [metasyn_api](../metasyn_api/README.md)
 
@@ -61,6 +63,9 @@ The result is a table of the columns with their type and fitted distribution, th
 
 ![Generated GMF model with column table, GMF JSON and download button](Screenshot-tool-generated-gmf.png)
 
+When the Dataset is in 'Draft' mode, there will also appear an 'Upload to Dataverse' button which allows to add the GMF file to your dataset. The name will be similar, but ends in `_gmf.json`, to indicate it is the GMF of that file. 
+
+
 ### 3. Generate synthetic data from a GMF file
 
 Start the tool the same way, but from a GMF (JSON) file. The tool detects the GMF file and offers to generate synthetic data; choose the number of rows and press 'Generate synthetic data'.
@@ -72,4 +77,12 @@ The result shows the input GMF, a preview of the generated rows and a button to 
 ![Generated synthetic data preview with download button](Screenshot-tool-generated-data.png)
 
 
+## Open issues
 
+- After generating the GMF it would be nice to allow to generate Synthetic data with it, just like that API,s UI page has. But now it does not, instead you would need to store it and then initiate another 'Explore; Synthetic Replicant File Tool' from the GMF file's 'Access' dropdown. 
+
+- If you generate synthetic data, you now can only download it, but it would be nice to also allow storing it in the dataset. 
+
+- This for/UI does show the input data on the 'results' section when you issue the generate action. This is a bit strange, users expect this to happen when the input is available and thus before issuing the generate action. 
+
+- There are many more UX inconveniences, but this is a demo, showing what integration from Dataverse with the 'metasyn' tool would be possible. 
