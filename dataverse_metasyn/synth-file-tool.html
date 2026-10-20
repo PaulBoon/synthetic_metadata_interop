@@ -533,7 +533,7 @@ details li { overflow-wrap: anywhere; }
     function fetchAddDataFileUrl(addDataFileUrl, fileContent) {
 
         // get original filename
-        const originalFilename = g_fileMetadata && g_fileMetadata.filename ? g_fileMetadata.filename : 'file';
+        let originalFilename = g_fileMetadata && g_fileMetadata.filename ? g_fileMetadata.filename : 'file';
         // strip extension if present
         const dotIndex = originalFilename.lastIndexOf('.');
         if (dotIndex > 0) {
