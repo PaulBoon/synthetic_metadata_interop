@@ -1,0 +1,31 @@
+# Install/configure the Demo Synth Data Tool
+
+- name: Set URL of the Synth File Tool web page
+  set_fact:
+    synth_file_tool_url: "https://{{ shared_hostname }}/custom/synth-file-tool.html"
+
+- name: Copy tool web page to custom directory
+  copy:
+    src: 'synth-file-tool.html'
+    dest: /var/www/html/custom/
+    mode: '0644'
+
+# Configure external tools
+
+- name: Get the current external tools
+  uri:
+    url: 'http://localhost:8080/api/admin/externalTools'
+    method: GET
+    return_content: yes
+    status_code: 200
+  check_mode: false
+  register: external_tools
+
+- name: Install or replace Synth File Tools
+  include_tasks: install_tool.yml
+  loop:
+    - "{{ synth_file_tool_tabular }}"
+    - "{{ synth_file_tool_gmf }}"
+  loop_control:
+    loop_var: tool
+    label: "{{ tool.toolName }} ({{ tool.contentType }})"

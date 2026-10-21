@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synthetic Replicant File Tool (Demo)</title>
+<style>
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #1b2430;
+  --muted: #5b6877;
+  --line: #d3dae2;
+  --accent: #0f6b6b;
+  --accent-ink: #ffffff;
+  --error: #b3261e;
+  --ok: #0f6b3a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12181f;
+    --surface: #1a222b;
+    --ink: #e6ebf0;
+    --muted: #93a0ae;
+    --line: #2d3947;
+    --accent: #4fc3c3;
+    --accent-ink: #0b1418;
+    --error: #ff8a80;
+    --ok: #7fd9a3;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  line-height: 1.5;
+}
+.container { max-width: 1040px; margin: 0 auto; padding: 40px 20px 64px; }
+
+header { margin-bottom: 32px; }
+header h1 { margin: 0 0 4px; font-size: 2rem; font-weight: 600; letter-spacing: -0.01em; }
+header p { margin: 0; color: var(--muted); max-width: 60ch; }
+#apiStatus {
+  display: inline-block; margin-top: 14px; padding: 2px 10px;
+  border: 1px solid var(--line); border-radius: 999px;
+  font-size: 0.85rem; color: var(--muted);
+}
+#apiStatus.up { color: var(--ok); border-color: var(--ok); }
+#apiStatus.down { color: var(--error); border-color: var(--error); }
+
+.steps { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+
+section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px;
+  min-width: 0;
+}
+section[hidden] { display: none; }
+section h2 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 600; }
+section > p { margin: 0 0 18px; color: var(--muted); font-size: 0.95rem; }
+
+label { display: block; font-size: 0.9rem; font-weight: 500; margin: 14px 0 6px; }
+input[type="number"] {
+  width: 100%; max-width: 14rem; padding: 8px 10px;
+  margin: 0 1rem;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: var(--bg); color: var(--ink);
+  font: inherit;
+}
+button {
+  margin-top: 16px; padding: 9px 18px;
+  border: 1px solid var(--accent); border-radius: 4px;
+  background: var(--accent); color: var(--accent-ink);
+  font: inherit; font-weight: 500; cursor: pointer;
+}
+button.secondary { background: transparent; color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.message { margin: 14px 0 0; font-size: 0.92rem; min-height: 1.4em; }
+.message.error { color: var(--error); }
+.message.ok { color: var(--ok); }
+
+.result { margin-top: 18px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; max-height: 340px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+th, td { padding: 6px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { position: sticky; top: 0; background: var(--surface); font-weight: 600; }
+td { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+tr:last-child td { border-bottom: none; }
+.caption { font-size: 0.85rem; color: var(--muted); margin: 18px 0 8px; }
+.preview {
+  margin: 0; padding: 8px 10px; overflow: auto; max-height: 340px;
+  border: 1px solid var(--line); border-radius: 4px; background: var(--bg);
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.85rem;
+}
+details { margin-top: 20px; color: var(--muted); font-size: 0.85rem; }
+details summary { cursor: pointer; }
+details li { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>Synthetic Replicant File Tool (Demo)</h1>
+<p>Generate a synthetic representation of a Dataverse file with Metasyn. A tabular file is turned into a model (GMF JSON); a GMF JSON file is turned into synthetic data.</p>
+<p>Note that this tool will never keep any data it receives and processes.</p>
+<span id="apiStatus">Checking Tool API…</span>
+</header>
+
+<div class="steps">
+<section id="filePanel">
+  <h2>Selected file</h2>
+  <p id="fileDescription">The file chosen in Dataverse is sent to the Metasyn API.</p>
+  <div id="controls"></div>
+  <p class="message" id="status" role="status"></p>
+</section>
+
+<section id="resultPanel" hidden>
+  <h2>Result</h2>
+  <div class="result" id="results"></div>
+</section>
+</div>
+
+<details>
+  <summary>Tool parameters</summary>
+  <div id="tool-info"></div>
+</details>
+</div>
+<script>
+    const API_URL = 'https://metasyn-api.labs.dansdemo.nl';
+    var g_fileMetadata;
+    var g_fileContent;
+    var g_isGmf = false;
+    var g_isDraft = false;
+    var g_queryParams;
+    
+    const $ = (id) => document.getElementById(id);
+
+    //--- Status and error reporting: logs to the console and shows the message on the page ---
+
+    function setMessage(message, kind, statusEl = $('status')) {
+        statusEl.textContent = message;
+        statusEl.className = 'message' + (kind ? ' ' + kind : '');
+    }
+
+    function showStatus(message, kind = '') {
+        console.log(message);
+        setMessage(message, kind);
+    }
+
+    function showError(message, error) {
+        console.error(message, error || '');
+        setMessage(error ? `${message}: ${error.message || error}` : message, 'error');
+    }
+
+    function checkApi() {
+        const badge = $('apiStatus');
+        fetch(API_URL + '/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                badge.textContent = 'Tool API connected';
+                badge.className = 'up';
+            })
+            .catch(error => {
+                console.warn('Metasyn ToolAPI not reachable:', error);
+                badge.textContent = `Tool API not reachable at ${API_URL}`;
+                badge.className = 'down';
+            });
+    }
+
+    // Rejects with the HTTP status and the error detail of the body for non-2xx responses.
+    function checkResponse(response) {
+        if (response.ok) {
+            return response;
+        }
+        return response.text().then(body => {
+            let detail = body;
+            try {
+                const json = JSON.parse(body);
+                detail = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail || json);
+            } catch (e) {
+                // body is not JSON, use it as is
+            }
+            throw new Error(`HTTP ${response.status} ${response.statusText}: ${detail}`);
+        });
+    }
+
+    // get the GMF json from the Synth File Tool response
+    function synthFileToolFitModel(fileContent) {
+        showStatus('Fitting a model on the file content...');
+
+        // Note that we have tab files, but we use csv for the content type
+        // The api seem to handle it correctly
+        const formData = new FormData();
+        formData.append('file', new Blob([fileContent], { type: 'text/csv' }), 'input_data.csv');
+
+        // No Content-Type header: the browser must set it to include the multipart boundary.
+        return fetch(API_URL + '/fit-model/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(checkResponse)
+        .then(response => response.json())
+        .then(jsonData => {
+            console.log('Fit model response:', jsonData);
+            if (!jsonData.model_json) {
+                throw new Error('the response does not contain model_json');
+            }
+            displayModelJson(jsonData.model_json);
+            showStatus('Model fitted.', 'ok');
+        })
+        .catch(error => {
+            showError(`Fitting the model failed (is the Metasyn Tool API running at ${API_URL}?)`, error);
+        });
+    }
+
+    function synthFileToolSynthesize(fileContent, numRows) {
+        let jsonData;
+        try {
+            jsonData = JSON.parse(fileContent);
+        } catch (error) {
+            showError('The file is not valid JSON', error);
+            return Promise.resolve();
+        }
+        const requestJson = {
+            "model_json": jsonData,
+            "num_rows": numRows
+        };
+        showStatus(`Synthesizing ${numRows} rows from the GMF file...`);
+        console.log('Request JSON for synthesis:', requestJson);
+
+        return fetch(API_URL + '/synthesize/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestJson)
+        })
+        .then(checkResponse)
+        .then(response => response.json())
+        .then(result => {
+            console.log('Synthesize response:', result);
+            if (!result.synthetic_data_csv) {
+                throw new Error('the response does not contain synthetic_data_csv');
+            }
+            displaySyntheticDataCsv(result.synthetic_data_csv);
+            showStatus('Synthetic data generated.', 'ok');
+        })
+        .catch(error => {
+            showError(`Synthesizing data failed (is the Metasyn Tool API running at ${API_URL}?)`, error);
+        });
+    }
+
+    //--- Display functions, adding elements to the results div (or tool-info for the input) ---
+
+    function clearResults() {
+        $('results').replaceChildren();
+        $('resultPanel').hidden = true;
+    }
+
+    function setBusy(button, busy, busyLabel) {
+        if (busy) {
+            button.dataset.label = button.textContent;
+            button.textContent = busyLabel;
+        } else if (button.dataset.label) {
+            button.textContent = button.dataset.label;
+        }
+        button.disabled = busy;
+    }
+
+    // Disables the button and clears old results while the action runs.
+    function runAction(button, action) {
+        setBusy(button, true, 'Working…');
+        clearResults();
+        return Promise.resolve()
+            .then(action)
+            .finally(() => setBusy(button, false));
+    }
+
+    function download(filename, text, mime) {
+        const url = URL.createObjectURL(new Blob([text], { type: mime }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // Small CSV parser that handles quoted fields.
+    function parseCsv(text) {
+        const rows = [];
+        let row = [], field = '', inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            const c = text[i];
+            if (inQuotes) {
+                if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+                else if (c === '"') inQuotes = false;
+                else field += c;
+            } else if (c === '"') inQuotes = true;
+            else if (c === ',') { row.push(field); field = ''; }
+            else if (c === '\n' || c === '\r') {
+                if (c === '\r' && text[i + 1] === '\n') i++;
+                row.push(field); field = '';
+                rows.push(row); row = [];
+            } else field += c;
+        }
+        if (field !== '' || row.length) { row.push(field); rows.push(row); }
+        return rows;
+    }
+
+    function fillRow(parent, cells, tag) {
+        const tr = document.createElement('tr');
+        cells.forEach(value => {
+            const cell = document.createElement(tag);
+            cell.textContent = value;
+            tr.appendChild(cell);
+        });
+        parent.appendChild(tr);
+    }
+
+    function addCaption(parent, text) {
+        const caption = document.createElement('p');
+        caption.className = 'caption';
+        caption.textContent = text;
+        parent.appendChild(caption);
+    }
+
+    function addTable(parent, header, rows) {
+        const wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        const table = document.createElement('table');
+        fillRow(table.createTHead(), header, 'th');
+        const tbody = table.createTBody();
+        rows.forEach(row => fillRow(tbody, row, 'td'));
+        wrap.appendChild(table);
+        parent.appendChild(wrap);
+    }
+
+    function addDownloadButton(parent, label, filename, content, mimeType) {
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary';
+        button.textContent = label;
+        button.onclick = () => download(filename, content, mimeType);
+        actions.appendChild(button);
+        parent.appendChild(actions);
+    }
+
+    function addUploadToDataverseButton(parent, label, fileContent, addDataFileUrl) {
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary';
+        button.textContent = label;
+        const uploadStatus = document.createElement('p');
+        uploadStatus.className = 'message';
+        uploadStatus.setAttribute('role', 'status');
+        button.onclick = () => {
+            if (!addDataFileUrl) {
+                console.error('Cannot upload: no addDataFile URL');
+                setMessage('Cannot upload: Dataverse did not provide an addDataFile URL', 'error', uploadStatus);
+                return;
+            }
+            // not runAction: that would clear the results this button lives in
+            button.disabled = true;
+            setMessage('Uploading the GMF file to Dataverse...', '', uploadStatus);
+            fetchAddDataFileUrl(addDataFileUrl, fileContent)
+                .then(() => setMessage('GMF file uploaded to Dataverse.', 'ok', uploadStatus))
+                .catch(error => {
+                    console.error('Uploading to Dataverse failed', error);
+                    setMessage(`Uploading to Dataverse failed: ${error.message || error}`, 'error', uploadStatus);
+                })
+                .finally(() => { button.disabled = false; });
+        };
+        actions.appendChild(button);
+        parent.appendChild(actions);
+        parent.appendChild(uploadStatus);
+    }
+
+    function displayModelJson(model) {
+        const outputDiv = $('results');
+        const vars = Array.isArray(model.vars) ? model.vars : [];
+        const rows = vars.map(v => [
+            v.name ?? '',
+            v.type || v.dtype || '',
+            (v.distribution && (v.distribution.implements || v.distribution.name)) || ''
+        ]);
+        const rowInfo = Number.isInteger(model.n_rows) ? `${model.n_rows} rows, ` : '';
+        addCaption(outputDiv, `Model: ${rowInfo}${vars.length} columns`);
+        addTable(outputDiv, ['Column', 'Type', 'Distribution'], rows);
+        addCaption(outputDiv, 'GMF JSON');
+        const modelPre = document.createElement('pre');
+        modelPre.className = 'preview';
+        modelPre.textContent = JSON.stringify(model, null, 2);
+        outputDiv.appendChild(modelPre);
+        addDownloadButton(outputDiv, 'Download model.json', 'model.json', JSON.stringify(model, null, 2), 'application/json');
+        if (g_isDraft) {
+            console.log('Draft detected, enabling upload to Dataverse.');
+            addUploadToDataverseButton(outputDiv, 'Upload to Dataverse', JSON.stringify(model, null, 2), g_queryParams.addDataFileUrl);
+        } else {
+            console.log('Not a draft, skipping upload to Dataverse.');
+        }
+        $('resultPanel').hidden = false;
+    }
+
+    function displaySyntheticDataCsv(syntheticDataCsv) {
+        const outputDiv = $('results');
+        const PREVIEW = 10;
+        const [header = [], ...data] = parseCsv(syntheticDataCsv.trim());
+        addCaption(outputDiv, `${data.length} rows generated – showing the first ${Math.min(PREVIEW, data.length)}`);
+        addTable(outputDiv, header, data.slice(0, PREVIEW));
+        addDownloadButton(outputDiv, 'Download synthetic.csv', 'synthetic.csv', syntheticDataCsv, 'text/csv');
+        $('resultPanel').hidden = false;
+    }
+
+    function displayQueryParams(queryParams) {
+        const outputDiv = document.getElementById('tool-info');
+        const queryParamsResults = document.createElement('p');
+        queryParamsResults.textContent = 'Tool Input:';
+        outputDiv.appendChild(queryParamsResults);
+        const queryList = document.createElement('ul');
+        outputDiv.appendChild(queryList);
+        // iterate over all query parameters and display them
+        for (const [key, value] of Object.entries(queryParams)) {
+            const li = document.createElement('li');
+            li.textContent = `${key}: ${value}`;
+            queryList.appendChild(li);
+        }
+    }
+
+    // slightly different from displayQueryParams... object stuff
+    function displayUrlParams(urlParams) {
+        // iterate over all query parameters and show them
+        const outputDiv = document.getElementById('tool-info');
+        const queryParamsResults = document.createElement('p');
+        queryParamsResults.textContent = 'Tool url params:';
+        outputDiv.appendChild(queryParamsResults);
+        const queryList = document.createElement('ul');
+        outputDiv.appendChild(queryList);
+        // iterate over all query parameters and display them
+        urlParams.forEach((value, key) => {
+            const li = document.createElement('li');
+            li.textContent = `${key}: ${value}`;
+            queryList.appendChild(li);
+        });
+    }
+
+    function displayFileContent(fileContent, isGmf) {
+        const outputDiv = $('results');
+        const preview = document.createElement('pre');
+        preview.className = 'preview';
+        if (isGmf) {
+            addCaption(outputDiv, 'Input GMF JSON');
+            try {
+                preview.textContent = JSON.stringify(JSON.parse(fileContent), null, 2);
+            } catch (error) {
+                preview.textContent = fileContent;
+            }
+        } else {
+            addCaption(outputDiv, 'Input file (first 10 lines)');
+            preview.textContent = fileContent.split('\n').slice(0, 10).join('\n');
+        }
+        outputDiv.appendChild(preview);
+        $('resultPanel').hidden = false;
+    }
+
+
+    //--- Retrieval and Storing functions ---
+
+    function retrieveJsonFile(queryParams) {
+        if (queryParams.fileUrl) {
+            showStatus('Retrieving the JSON file to check whether it is a GMF file...');
+            return fetch(queryParams.fileUrl)
+                .then(checkResponse)
+                .then(response => response.text())
+                .then(fileContent => {
+                    g_fileContent = fileContent;
+
+                    // determine if it is GMF (possibly valid?)
+                    try {
+                        const jsonData = JSON.parse(g_fileContent);
+
+                        if (jsonData.gmf_version) {
+                            // we might check that version
+                            console.log('GMF file detected, version:', jsonData.gmf_version);
+                            g_isGmf = true;
+                        } else {
+                            console.log('JSON file without gmf_version, not treated as a GMF file.');
+                            g_isGmf = false;
+                        }
+                    } catch (error) {
+                        console.warn('The file could not be parsed as JSON, not treated as a GMF file:', error);
+                        g_isGmf = false;
+                    }
+                });
+        }
+        return Promise.resolve();
+    }
+
+    function fetchFileMetadata(versionUrl, fileId) {
+        showStatus('Retrieving the dataset metadata...');
+        return fetch(versionUrl)
+            .then(checkResponse)
+            .then(response => response.json())
+            .then(datasetMetadata => {
+                var datafiles = datasetMetadata.data && datasetMetadata.data.files;
+                if (!datafiles) {
+                    throw new Error('the dataset metadata does not contain a file list');
+                }
+                for (var entry in datafiles) {
+                    if (String(datafiles[entry].dataFile.id) === String(fileId)) {
+                        return datafiles[entry].dataFile;
+                    }
+                }
+                return null;
+            });
+    }
+
+    /**
+     * curl -H "X-Dataverse-key:$API_TOKEN" -X POST -F "file=@$FILENAME" -F 'jsonData={"description":"My description.","directoryLabel":"data/subdir1","categories":["Data"], "restrict":"false", "tabIngest":"false"}' "$SERVER_URL/api/datasets/:persistentId/add?persistentId=$PERSISTENT_ID"
+     * multipart form data
+     * 
+     */
+    function fetchAddDataFileUrl(addDataFileUrl, fileContent) {
+
+        // get original filename
+        let originalFilename = g_fileMetadata && g_fileMetadata.filename ? g_fileMetadata.filename : 'file';
+        // strip extension if present
+        const dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex > 0) {
+            originalFilename = originalFilename.substring(0, dotIndex);
+        }
+        const filename = originalFilename + '_gmf.json';
+        // Note that we don't check if the file is already present etc.
+
+        // try to use the same directory label as the original file
+        const directoryLabel = g_fileMetadata && g_fileMetadata.directoryLabel ? g_fileMetadata.directoryLabel : 'metasyn';
+        const newFileMetaData = {
+            "description":"Generative Metadata Format (GMF)",
+            "directoryLabel": directoryLabel,
+            //"categories":["Data"], // Maybe have a specific category for 'metadata' files
+            "restrict":"false", 
+            "tabIngest":"false"
+        }
+        const newFileContent = new Blob([fileContent], { type: 'application/json' });
+        const formData = new FormData();
+        formData.append('file', newFileContent, filename);
+        formData.append('jsonData', JSON.stringify(newFileMetaData));
+
+        return fetch(addDataFileUrl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(checkResponse)
+        .then(response => response.json());
+    }
+
+    // This function contains the logic to continue the process
+    // using the query parameters.
+    function continueWithParams(queryParams) {
+        console.log('Continuing with parameters:', queryParams);
+        g_queryParams = queryParams;
+        g_isDraft = queryParams.datasetversion === ':draft';
+
+        displayQueryParams(queryParams);
+
+        // Check for essential query parameters before proceeding
+        if (!queryParams.versionUrl) {
+            showError('Cannot continue: no dataset version URL was provided by Dataverse');
+            return;
+        }
+        if (!queryParams.fileUrl) {
+            showError('Cannot continue: no file URL was provided by Dataverse');
+            return;
+        }
+
+        // resolves to false when the file or its metadata could not be retrieved
+        var metadataReady = fetchFileMetadata(queryParams.versionUrl, queryParams.fileid)
+            .then(fileMetadata => {
+                if (fileMetadata) {
+                    console.log('Retrieved file metadata:', fileMetadata);
+                    g_fileMetadata = fileMetadata;
+                    // only for json we should check if it is a GMF JSON file
+                    if (g_fileMetadata.contentType === 'application/json') {
+                        return retrieveJsonFile(queryParams);
+                    }
+                } else {
+                    console.warn(`No metadata found for file ID ${queryParams.fileid}; treating the file as a tabular file`);
+                }
+            })
+            .then(() => true)
+            .catch(error => {
+                showError('Could not retrieve the file or its metadata from Dataverse', error);
+                return false;
+            });
+
+        metadataReady.then(ok => {
+            if (!ok) {
+                return;
+            }
+            // metadata has been retrieved and stored in g_fileMetadata if available
+            // g_isGmf indicates whether the file is a GMF JSON file or not
+            console.log('Metadata is ready. g_fileMetadata:', g_fileMetadata);
+            
+            // Note that we can check the file size and determine if uploading is possible 
+            // given the max upload size, if we knew it... 
+
+            if (g_fileMetadata && g_fileMetadata.filename) {
+                $('fileDescription').textContent = `The file "${g_fileMetadata.filename}" chosen in Dataverse is sent to the Metasyn Tool API.`;
+            }
+            if (g_fileMetadata) {
+                showStatus(`Ready: ${g_fileMetadata.filename || 'file'} (${g_fileMetadata.contentType}) will be handled as a ${g_isGmf ? 'GMF JSON' : 'tabular'} file.`, 'ok');
+            } else {
+                showStatus('Ready: no file metadata found, the file will be handled as a tabular file.');
+            }
+            // enable a button to pass the file to an external tool
+            var button = document.createElement('button');
+            var controls = $('controls');
+            if (g_isGmf) {
+                var numRowsLabel = document.createElement('label');
+                numRowsLabel.textContent = 'Number of rows';
+                var numRowsInput = document.createElement('input');
+                numRowsInput.type = 'number';
+                numRowsInput.min = '1';
+                numRowsInput.step = '1';
+                numRowsInput.value = '10';
+                numRowsLabel.appendChild(numRowsInput);
+                controls.appendChild(numRowsLabel);
+
+                button.textContent = 'Generate synthetic data';
+                button.onclick = function() {
+                    const numRows = parseInt(numRowsInput.value, 10);
+                    if (!(numRows >= 1)) {
+                        showError('Enter a number of rows of 1 or more');
+                        return;
+                    }
+                    // already got the file content in g_fileContent
+                    runAction(button, () => {
+                        displayFileContent(g_fileContent, true);
+                        return synthFileToolSynthesize(g_fileContent, numRows);
+                    });
+                };
+            } else {
+                button.textContent = 'Fit model';
+                // need to get the file content first
+                button.onclick = function() {
+                    runAction(button, () => {
+                        showStatus('Retrieving the file content...');
+                        return fetch(queryParams.fileUrl)
+                            .then(checkResponse)
+                            .then(response => response.text())
+                            .then(fileContent => {
+                                displayFileContent(fileContent);
+                                return synthFileToolFitModel(fileContent);
+                            })
+                            .catch(error => {
+                                showError('Could not retrieve the file content', error);
+                            });
+                    });
+                };
+            }
+
+            controls.appendChild(button);
+        });
+    }
+
+    // main entry point
+    window.onload = function() {
+        var queryParams = {};
+
+        // get the query parameters from the URL
+        var urlParams = new URLSearchParams(window.location.search);
+        
+        displayUrlParams(urlParams);
+        checkApi();
+
+        // From the guide: For tools invoked via a GET call, 
+        // Dataverse will include a callback query parameter with a Base64 encoded value. 
+        // The decoded value is a signed URL that can be called to retrieve a JSON response 
+        // containing all of the queryParameters and allowedApiCalls specified 
+        // in the manifest.
+        if (urlParams.has("callback")) {
+            var callback = atob(urlParams.get("callback"));
+            console.log('Decoded callback URL:', callback);
+
+            showStatus('Retrieving the tool parameters from Dataverse...');
+            fetch(callback)
+            .then(checkResponse)
+            .then(response => response.json())
+            .then(json => {
+                console.log('Callback Response:', json.data);
+
+                queryParams = json.data.queryParameters;
+                var urls = json.data.signedUrls;
+                for (var i in urls) {
+                    var url = urls[i];
+                    switch (url.name) {
+                        case 'retrieveFileContents':
+                            queryParams.fileUrl = url.signedUrl;
+                            break;
+                        case 'downloadFile':
+                            queryParams.fileDownloadUrl = url.signedUrl;
+                            break;
+                        case 'getDatasetVersionMetadata':
+                            queryParams.versionUrl = url.signedUrl;
+                            break;
+                        case 'retrieveDataFile':
+                            queryParams.fileUrl = url.signedUrl;
+                            break;
+                        case 'addDataFile':
+                            queryParams.addDataFileUrl = url.signedUrl;
+                            break;
+                        default:
+                    }
+                }
+                continueWithParams(queryParams);
+            })
+            .catch(error => {
+                showError('Could not retrieve the tool parameters from Dataverse', error);
+            });
+        } else {
+            // No callback, I guess this is the case for old versions of Dataverse
+            // probably I do not want or need to support this, 
+            // but copied it from the previewers retriever.js.
+            console.log('No callback provided, constructing it');
+
+            // try to extract the parameters from the URL directly
+            urlParams.forEach((value, key) => {
+                queryParams[key] = value;
+            });
+            var fileUrl = queryParams.siteUrl + "/api/access/datafile/"
+                + queryParams.fileid + "?gbrecs=true";
+            var fileDownloadUrl = queryParams.siteUrl + "/api/access/datafile/"
+                + queryParams.fileid + "?gbrecs=false";
+            var versionUrl = queryParams.siteUrl + "/api/datasets/"
+                + queryParams.datasetid + "/versions/"
+                + queryParams.datasetversion;
+            var apiKey = queryParams.key;
+            if (apiKey != null) {
+                fileUrl = fileUrl + "&key=" + apiKey;
+                fileDownloadUrl = fileDownloadUrl + "&key=" + apiKey;
+                versionUrl = versionUrl + "?key=" + apiKey;
+            }
+            queryParams.fileUrl = fileUrl;
+            queryParams.fileDownloadUrl = fileDownloadUrl;
+            queryParams.versionUrl = versionUrl;
+            continueWithParams(queryParams);
+        }
+
+        // nothing to do here, the rest of the logic is in the continueWithParams function, 
+        // which is called after we have the query parameters ready.
+    };
+
+</script>
+</body>
+</html>

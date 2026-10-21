@@ -1,0 +1,60 @@
+# Expects: `tool` (desired config) and `external_tools` (result of GET on the externalTools API)
+#
+# The external tools API does not support a GET for a specific tool by name, so we get all tools,
+#  find the installed ones with the same toolName and contentType as the desired tool, and only
+#  replace (delete old, add new) if they differ from the desired config.
+#
+# You can delete 'wrong' configs with `curl -X DELETE http://localhost:8080/api/admin/externalTools/<id>`,
+# where `<id>` is the number for the config that you can discover with `curl http://localhost:8080/api/admin/externalTools`.
+
+- name: Find installed tools with the same name and content type
+  set_fact:
+    installed_matches: >-
+      {{ external_tools.json.data
+         | selectattr('toolName', 'equalto', tool.toolName)
+         | selectattr('contentType', 'equalto', tool.contentType)
+         | list }}
+
+- name: Determine whether the installed tool differs from the desired config
+  set_fact:
+    tool_differs: >-
+      {%- set ns = namespace(differs=(installed_matches | length != 1)) -%}
+      {%- if installed_matches | length == 1 -%}
+      {%- for k, v in tool.items() | rejectattr('0', 'equalto', 'id') -%}
+      {%- if (installed_matches[0][k] | default(none)) != v -%}{%- set ns.differs = true -%}{%- endif -%}
+      {%- endfor -%}
+      {%- endif -%}
+      {{ ns.differs }}
+
+- name: Show installed and desired config if they differ
+  debug:
+    msg:
+      installed: "{{ installed_matches }}"
+      desired: "{{ tool }}"
+  when: tool_differs | bool
+
+- name: Uninstall outdated tool
+  uri:
+    url: 'http://localhost:8080/api/admin/externalTools/{{ item }}'
+    method: DELETE
+    status_code: 200
+  loop: "{{ installed_matches | map(attribute='id') | list }}"
+  changed_when: true
+  when: tool_differs | bool
+
+- name: Install tool
+  uri:
+    url: http://localhost:8080/api/admin/externalTools
+    method: POST
+    headers:
+      Content-type: "application/json"
+    body_format: json
+    body: "{{ tool }}"
+  changed_when: true
+  when: tool_differs | bool
+
+- name: Show that the tool was installed or replaced
+  debug:
+    msg: "Installed or replaced tool {{ tool.toolName }} ({{ tool.contentType }})"
+  when: tool_differs | bool
+  
