@@ -1,0 +1,4 @@
+- hosts: datastations
+  become: yes
+  roles:
+    - add-demo-synth-data

@@ -5,6 +5,8 @@ This is a follow-up of the work in the [dataverse_external_tools](../dataverse_e
 The goal is to connect the 'External Tools' page from Dataverse to the Metasyn API (web service). Using that service we can generate GMF JSON (model) file from a tabular file. The GMF can then be download. Alternatively, when initiated from such a GMF file, we can generate synthetic data and download it. 
 In contrast with the previous example, it does not provide any 'AUX' file retrieval and storage. This is technically possible, but for this example/demo it was decided to put the emphasis on the synthetic data generation. 
 
+Note that there is also Ansible code that was used to deploy the 'external tools' on the SSH test server. This can be found in the `ansible` folder, check the [README.md](ansible/README.md). 
+
 
 ## Setup
 

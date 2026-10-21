@@ -1,0 +1,56 @@
+synth_file_tool_tabular:
+  displayName: Synthetic Replicant File Tool
+  description: A tool that is enabling to generate a synthetic representation of a tabular file!
+  toolName: SynthFileTool
+  scope: file
+  types:
+    - explore
+  toolUrl: "{{ synth_file_tool_url }}"
+  contentType: text/tab-separated-values
+  toolParameters:
+    queryParameters:
+      - fileid: "{fileId}"
+      - datasetPid: "{datasetPid}"
+      - datasetid: "{datasetId}"
+      - datasetversion: "{datasetVersion}"
+      - locale: "{localeCode}"
+  allowedApiCalls:
+    - name: retrieveDataFile
+      httpMethod: GET
+      urlTemplate: "/api/v1/access/datafile/{fileId}?gbrecs=true"
+      timeOut: 3600
+    - name: getDatasetVersionMetadata
+      httpMethod: GET
+      urlTemplate: "/api/v1/datasets/{datasetId}/versions/{datasetVersion}"
+      timeOut: 3600
+    - name: addDataFile
+      httpMethod: POST
+      urlTemplate: "/api/v1/datasets/{datasetId}/add"
+      timeOut: 3600
+
+synth_file_tool_gmf:
+  displayName: Synthetic Replicant File Tool
+  description: A tool that is enabling to generate a synthetic representation of a tabular file!
+  toolName: SynthFileTool
+  scope: file
+  types:
+    - explore
+  toolUrl: "{{ synth_file_tool_url }}"
+  contentType: application/json
+  toolParameters:
+    queryParameters:
+      - fileid: "{fileId}"
+      - datasetPid: "{datasetPid}"
+      - datasetid: "{datasetId}"
+      - datasetversion: "{datasetVersion}"
+      - locale: "{localeCode}"
+  allowedApiCalls:
+    - name: retrieveDataFile
+      httpMethod: GET
+      urlTemplate: "/api/v1/access/datafile/{fileId}?gbrecs=true"
+      timeOut: 270
+    - name: getDatasetVersionMetadata
+      httpMethod: GET
+      urlTemplate: "/api/v1/datasets/{datasetId}/versions/{datasetVersion}"
+      timeOut: 3600
+
